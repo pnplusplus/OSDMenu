@@ -89,8 +89,9 @@ int handleFMCB(int argc, char *argv[]) {
 
   // CDROM arguments
   int displayGameID = 1;
-  int useDKWDRV = 0;
   int skipPS2LOGO = 0;
+  int useDKWDRV = 0;
+  char *dkwdrvPath = NULL;
 
   // Temporary path and argument lists
   linkedStr *targetPaths = NULL;
@@ -152,7 +153,11 @@ int handleFMCB(int argc, char *argv[]) {
       continue;
     }
     if (!strncmp(lineBuffer, "cdrom_use_dkwdrv", 16)) {
-      useDKWDRV = atoi(valuePtr);
+      useDKWDRV = 1;
+      continue;
+    }
+    if (!strncmp(lineBuffer, "path_DKWDRV_ELF", 15)) {
+      dkwdrvPath = strdup(valuePtr);
       continue;
     }
   }
@@ -162,6 +167,8 @@ int handleFMCB(int argc, char *argv[]) {
     msg("FMCB: No paths found for entry %d\n", targetIdx);
     freeLinkedStr(targetPaths);
     freeLinkedStr(targetArgs);
+    if (dkwdrvPath)
+      free(dkwdrvPath);
     return -EINVAL;
   }
 
@@ -169,6 +176,8 @@ int handleFMCB(int argc, char *argv[]) {
   if (!strcmp(targetPaths->str, "OSDSYS")) {
     freeLinkedStr(targetPaths);
     freeLinkedStr(targetArgs);
+    if (dkwdrvPath)
+      free(dkwdrvPath);
     rebootPS2();
   }
 
@@ -176,6 +185,8 @@ int handleFMCB(int argc, char *argv[]) {
   if (!strcmp(targetPaths->str, "POWEROFF")) {
     freeLinkedStr(targetPaths);
     freeLinkedStr(targetArgs);
+    if (dkwdrvPath)
+      free(dkwdrvPath);
     shutdownPS2();
   }
 
@@ -183,8 +194,15 @@ int handleFMCB(int argc, char *argv[]) {
   if (!strcmp(targetPaths->str, "cdrom")) {
     freeLinkedStr(targetPaths);
     freeLinkedStr(targetArgs);
-    return startCDROM(displayGameID, useDKWDRV, skipPS2LOGO);
+    if (!useDKWDRV && dkwdrvPath) {
+      free(dkwdrvPath);
+      dkwdrvPath = NULL;
+    }
+    return startCDROM(displayGameID, skipPS2LOGO, dkwdrvPath);
   }
+
+  if (dkwdrvPath)
+    free(dkwdrvPath);
 
   // Build argv, freeing targetArgs
   char **targetArgv = malloc(targetArgc * sizeof(char *));

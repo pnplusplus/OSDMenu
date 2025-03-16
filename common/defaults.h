@@ -6,6 +6,7 @@
 // mc? paths are also supported.
 #define CONF_PATH "mc0:/SYS-CONF/FREEMCB.CNF"
 #define LAUNCHER_PATH "mc0:/SYS-CONF/launcher.elf"
+#define DKWDRV_PATH "mc0:/SYS-CONF/DKWDRV.ELF"
 
 
 #endif

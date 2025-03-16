@@ -1,5 +1,6 @@
 #include "common.h"
 #include "game_id.h"
+#include "defaults.h"
 #include "history.h"
 #include "init.h"
 #include "loader.h"
@@ -19,11 +20,9 @@ typedef enum {
   DiscType_PS2,
 } DiscType;
 
-char dkwdrvPath[] = "mc?:/SYS-CONF/DKWDRV.ELF";
-
 const char *getPS1GenericTitleID();
 int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion);
-int startCDROM(int displayGameID, int useDKWDRV, int skipPS2LOGO);
+int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath);
 
 #define MAX_STR 256
 
@@ -35,6 +34,7 @@ int handleCDROM(int argc, char *argv[]) {
   int skipPS2LOGO = 0;
 
   char *arg;
+  char *dkwdrvPath = NULL;
   for (int i = 0; i < argc; i++) {
     arg = argv[i];
     if ((arg == NULL) || (arg[0] != '-'))
@@ -45,25 +45,49 @@ int handleCDROM(int argc, char *argv[]) {
       skipPS2LOGO = 1;
     } else if (!strcmp("nogameid", arg)) {
       displayGameID = 0;
-    } else if (!strcmp("dkwdrv", arg)) {
+    } else if (!strncmp("dkwdrv", arg, 6)) {
       useDKWDRV = 1;
+      dkwdrvPath = strchr(arg, '=');
+      if (dkwdrvPath) {
+        dkwdrvPath++;
+      }
     }
   }
 
-  return startCDROM(displayGameID, useDKWDRV, skipPS2LOGO);
+  if (useDKWDRV && !dkwdrvPath)
+    dkwdrvPath = strdup(DKWDRV_PATH);
+
+  return startCDROM(displayGameID, skipPS2LOGO, dkwdrvPath);
 }
 
-int startCDROM(int displayGameID, int useDKWDRV, int skipPS2LOGO) {
+int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
   int res = initModules(Device_MemoryCard);
   if (res)
     return res;
+
+  if (dkwdrvPath) {
+    if (strncmp(dkwdrvPath, "mc", 2)) {
+      msg("CDROM ERROR: only memory cards are supported for DKWDRV\n");
+      return -ENOENT;
+    }
+
+    // Find DKWDRV path
+    for (int i = '0'; i < '2'; i++) {
+      dkwdrvPath[2] = i;
+      if (!tryFile(dkwdrvPath))
+        goto dkwdrvFound;
+    }
+    msg("CDROM ERROR: Failed to find DKWDRV at %s\n", dkwdrvPath);
+    return -ENOENT;
+  dkwdrvFound:
+  }
 
   if (!sceCdInit(SCECdINIT)) {
     printf("CDROM ERROR: Failed to initialize libcdvd\n");
     return -ENODEV;
   }
 
-  if (useDKWDRV)
+  if (dkwdrvPath)
     printf("CDROM: Using DKWDRV for PS1 discs\n");
   if (!displayGameID)
     printf("CDROM: Disabling visual game ID\n");
@@ -101,18 +125,6 @@ int startCDROM(int displayGameID, int useDKWDRV, int skipPS2LOGO) {
     return -ENOENT;
   }
 
-  if ((discType == DiscType_PS1) && (useDKWDRV)) {
-    // Find DKWDRV path
-    for (int i = '0'; i < '2'; i++) {
-      dkwdrvPath[2] = i;
-      if (!tryFile(dkwdrvPath))
-        goto dkwdrvFound;
-    }
-    msg("CDROM ERROR: Failed to find DKWDRV at %s\n", dkwdrvPath);
-    return -ENOENT;
-  dkwdrvFound:
-  }
-
   if (titleID[0] != '\0') {
     // Update history file and display game ID
     updateHistoryFile(titleID);
@@ -130,7 +142,7 @@ int startCDROM(int displayGameID, int useDKWDRV, int skipPS2LOGO) {
 
   switch (discType) {
   case DiscType_PS1:
-    if (useDKWDRV) {
+    if (dkwdrvPath) {
       printf("Starting DKWDRV\n");
       free(bootPath);
       free(titleID);

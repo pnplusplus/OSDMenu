@@ -12,7 +12,7 @@ int handleBDM(DeviceType device, int argc, char *argv[]);
 //
 // Launches the disc while displaying the visual game ID and writing to the history file
 int handleCDROM(int argc, char *argv[]);
-int startCDROM(int displayGameID, int useDKWDRV, int skipPS2LOGO);
+int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath);
 
 // handler_fmcb.c
 //
