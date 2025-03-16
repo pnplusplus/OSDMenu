@@ -3,6 +3,13 @@
 This is an attempt at porting Free McBoot 1.8 OSDSYS patches to modern PS2SDK.  
 Tested on SCPH-39004 and SCPH-70000.
 
+## Usage
+
+1. Copy `patcher.elf` and `launcher.elf` to `mc?:/SYS-CONF/`  
+   Copy DKWDRV to `mc?:/SYS-CONF/DKWDRV.ELF` _(optional)_ 
+2. Edit `mc?:/SYS-CONF/FREEMCB.CNF` [as you see fit](#fmcb-handler)
+3. Configure PS2BBL to launch `mc?:/SYS-CONF/patcher.elf` or launch it manually from LaunchELF
+
 ## Key differences from FMCB 1.8:
 - All initialization code is removed in favor of using a separate bootloader to start the patcher (e.g. [PS2BBL](https://github.com/israpps/PlayStation2-Basic-BootLoader))
 - USB support is dropped from the patcher, so only memory cards are checked for `FREEMCB.CNF`
@@ -17,7 +24,7 @@ Due to memory limitations and the need to support more devices, the original FMC
 ## Patcher
 
 This is a slimmed-down and refactored version of OSDSYS patches from FMCB 1.8 for modern PS2SDK.  
-It reads settings from `mc?:/SYS-CONF/launcher.elf` and patches the `rom0:OSDSYS` binary with the following patches:
+It reads settings from `mc?:/SYS-CONF/FREEMCB.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
 - Custom OSDSYS menu entries
 - Infinite scrolling
 - Custom button prompts and menu header
