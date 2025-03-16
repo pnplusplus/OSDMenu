@@ -16,9 +16,9 @@ typedef struct {
   uint8_t scrollMenu;       // Enable/Disable scrolling menu
 
   // Disc launch parameters
-  uint8_t skipPS2LOGO;  // Enable/Disable PS2LOGO
+  uint8_t skipPS2LOGO;   // Enable/Disable PS2LOGO
   uint8_t disableGameID; // Enable/Disable visual game ID
-  uint8_t useDKWDRV;    // Enable/Disable using DKWDRV for PS1 discs
+  uint8_t useDKWDRV;     // Enable/Disable using DKWDRV for PS1 discs
 
   char *videoMode;             // OSDSYS Video mode : AUTO, PAL or NTSC
   int menuX;                   // Menu X coordinate (menu center)
@@ -42,6 +42,7 @@ typedef struct {
   int menuItemCount;            // Total number of valid menu items
 
   char *launcherPath; // Path to launcher ELF
+  char *dkwdrvPath;   // Path to DKWDRV
 } PatcherSettings;
 
 // Stores patcher settings and OSDSYS menu items

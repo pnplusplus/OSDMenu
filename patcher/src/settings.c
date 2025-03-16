@@ -238,6 +238,10 @@ int loadConfig(void) {
       settings.launcherPath = value;
       continue;
     }
+    if (!strcmp(name, "path_DKWDRV_ELF")) {
+      settings.dkwdrvPath = value;
+      continue;
+    }
     if (!strcmp(name, "cdrom_skip_ps2logo")) {
       settings.skipPS2LOGO = atoi(value);
       continue;
@@ -291,6 +295,7 @@ void initConfig(void) {
   }
   settings.menuItemCount = 0;
   settings.launcherPath = launcherPath;
+  settings.dkwdrvPath = NULL;
   settings.skipPS2LOGO = 1;
   settings.disableGameID = 0;
   settings.useDKWDRV = 0;

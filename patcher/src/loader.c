@@ -43,8 +43,17 @@ void launchItem(char *item) {
     argv[1] = strdup(item);
     argv[2] = (settings.skipPS2LOGO) ? "-nologo" : "";
     argv[3] = (!settings.disableGameID) ? "" : "-nogameid";
-    argv[4] = (settings.useDKWDRV) ? "-dkwdrv" : "";
-    argc = 5;
+    argc = 4;
+    if (settings.useDKWDRV) {
+      if (!settings.dkwdrvPath)
+        argv[4] = (settings.useDKWDRV) ? "-dkwdrv" : "";
+      else {
+        argv[4] = malloc(sizeof("-dkwdrv") + strlen(settings.dkwdrvPath) + 1);
+        strcat(argv[4], "-dkwdrv=");
+        strcat(argv[4], settings.dkwdrvPath);
+      }
+      argc++;
+    }
   }
 
   // Wipe user memory and writeback data cache before loading the ELF
