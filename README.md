@@ -63,9 +63,9 @@ Waits for the disc to be detected and launches it.
 Supports the following arguments:
 - `-nologo` — launches the game executable directly, bypassing `rom0:PS2LOGO`
 - `-nogameid` — disables visual game ID
-- `-dkwdrv` — when PS1 disc is detected, launches DKWDRV instead of `rom0:PS1DRV`
+- `-dkwdrv` — when PS1 disc is detected, launches DKWDRV from `mc?:/SYS-CONF/DKWDRV.ELF` instead of `rom0:PS1DRV`
+- `-dkwdrv=mc?:/<path to DKWDRV>` — same as `-dkwdrv`, but with custom DKWDRV path.
 
-Requires DKWDRV to be placed in `mc?:/SYS-CONF/DKWDRV.ELF`.  
 For PS1 CDs with generic executable name (e.g. `PSX.EXE`), attempts to guess the game ID using the volume creation date
 stored in the Primary Volume Descriptor, based on the table from [TonyHax International](https://github.com/alex-free/tonyhax/blob/master/loader/gameid-psx-exe.c).
 
@@ -112,6 +112,7 @@ New to this launcher:
 27. `cdrom_disable_gameid` — disables or enables visual Game ID
 28. `cdrom_use_dkwdrv` — enables or disables launching DKWDRV for PS1 discs
 29. `path_LAUNCHER_ELF` — custom path to launcher.elf. The path MUST be on the memory card
+30. `path_DKWDRV_ELF` — custom path to DKWDRV.ELF. The path MUST be on the memory card
 
 ## Credits
 
