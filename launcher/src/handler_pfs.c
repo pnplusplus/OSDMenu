@@ -1,0 +1,75 @@
+#include "init.h"
+#include "loader.h"
+#include <hdd-ioctl.h>
+#include <ps2sdkapi.h>
+#include <stdio.h>
+#include <string.h>
+
+#define NEWLIB_PORT_AWARE
+#include <fileXio_rpc.h>
+#include <io_common.h>
+
+#define DELAY_ATTEMPTS 20
+#define PFS_MOUNTPOINT "pfs0:"
+
+// Loads ELF from APA-formatted HDD
+int handlePFS(int argc, char *argv[]) {
+  if ((argv[0] == 0) || (strlen(argv[0]) < 4))
+    msg("PFS: invalid argument\n");
+
+  // Extract partition from hdd?:<partition>/<path to ELF>
+  // Check if the path starts with "hdd?:/" and reject it
+  char *path = &argv[0][5];
+  if (path[0] == '/')
+    msg("PFS: invalid path format\n");
+
+  // Get the first path separator
+  path = strchr(path, '/');
+  if (!path)
+    msg("PFS: no file path found\n");
+
+  // Terminate the path to get partition name in argv[0]
+  // and increment to point to the PFS ELF path
+  path[0] = '\0';
+  path++;
+
+  int res = initModules(Device_PFS);
+  if (res)
+    return res;
+
+  // Wait for IOP to initialize device driver
+  printf("Waiting for HDD to become available\n");
+  for (int attempts = 0; attempts < DELAY_ATTEMPTS; attempts++) {
+    res = open("hdd0:", O_DIRECTORY | O_RDONLY);
+    if (res >= 0) {
+      close(res);
+      break;
+    }
+    sleep(1);
+  }
+  if (res < 0)
+    return -ENODEV;
+
+  // Build PFS path
+  char pathbuffer[PATH_MAX];
+  snprintf(pathbuffer, PATH_MAX - 1, "%s/%s", PFS_MOUNTPOINT, path);
+
+  // Mount the partition
+  printf("Mounting %s to %s\n", argv[0], PFS_MOUNTPOINT);
+  if (fileXioMount(PFS_MOUNTPOINT, argv[0], FIO_MT_RDONLY))
+    return -ENODEV;
+
+  // Make sure file exists
+  if (tryFile(pathbuffer)) {
+    fileXioDevctl(PFS_MOUNTPOINT, PDIOC_CLOSEALL, NULL, 0, NULL, 0);
+    fileXioSync(PFS_MOUNTPOINT, FXIO_WAIT);
+    fileXioUmount(PFS_MOUNTPOINT);
+    return -ENOENT;
+  }
+
+  // Build the path as 'hdd0:<partition name>:pfs:/<path to ELF>'
+  snprintf(pathbuffer, PATH_MAX - 1, "%s:pfs:/%s", argv[0], path);
+  argv[0] = pathbuffer;
+
+  return LoadELFFromFile(argc, argv);
+}
