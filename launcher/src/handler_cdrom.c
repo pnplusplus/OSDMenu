@@ -1,6 +1,6 @@
 #include "common.h"
-#include "game_id.h"
 #include "defaults.h"
+#include "game_id.h"
 #include "history.h"
 #include "init.h"
 #include "loader.h"
@@ -119,10 +119,21 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
   char *titleVersion = calloc(sizeof(char), MAX_STR);
   discType = parseDiscCNF(bootPath, titleID, titleVersion);
   if (discType < 0) {
-    free(bootPath);
-    free(titleID);
-    free(titleVersion);
-    return -ENOENT;
+    // Apparently not all PS1 titles have SYSTEM.CNF...
+    // Can't rely on libcdvd disc type due to MechaPwn
+    // force unlock forcing all discs to identify as PS2 DVD
+    const char *tID = getPS1GenericTitleID();
+    if (tID) {
+      printf("Guessed the title ID from disc PVD: %s\n", tID);
+      strncpy(titleID, tID, 11);
+      discType = DiscType_PS1;
+    } else {
+      msg("CDROM ERROR: Failed to parse SYSTEM.CNF\n");
+      free(bootPath);
+      free(titleID);
+      free(titleVersion);
+      return -ENOENT;
+    }
   }
 
   if (titleID[0] != '\0') {
@@ -130,10 +141,9 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
     updateHistoryFile(titleID);
     if (displayGameID)
       gsDisplayGameID(titleID);
-  } else {
-    // Set placeholder value
-    strcpy(titleID, "???");
-  }
+  } else
+    strcpy(titleID, "???"); // Set placeholder value
+
   if (titleVersion[0] == '\0')
     // Set placeholder value
     strcpy(titleVersion, "???");
@@ -157,12 +167,15 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
     }
     break;
   case DiscType_PS2:
-    sceSifExitCmd();
-
-    if (skipPS2LOGO)
+    if (skipPS2LOGO) {
+      // Apply IOP emulation flags for Deckard consoles
+      // (simply returns on PGIF consoles)
+      applyXPARAM(titleID);
+      sceSifExitCmd();
       // Launch PS2 Game directly
       LoadExecPS2(bootPath, 0, NULL);
-    else {
+    } else {
+      sceSifExitCmd();
       // Launch PS2 Game with rom0:PS2LOGO
       char *argv[] = {bootPath};
       LoadExecPS2("rom0:PS2LOGO", 1, argv);
@@ -181,9 +194,9 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
   // Open SYSTEM.CNF
   int fd = open("cdrom0:\\SYSTEM.CNF;1", O_RDONLY);
   if (fd < 0) {
-    msg("CDROM ERROR: Failed to open SYSTEM.CNF\n");
     return -ENOENT;
   }
+
   // Get the file size
   int size = lseek(fd, 0, SEEK_END);
   if (size <= 0) {
@@ -234,7 +247,6 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
     if (!strncmp(lineBuffer, "BOOT", 4)) { // PS1 title
       type = DiscType_PS1;
       strncpy(bootPath, valuePtr, MAX_STR);
-      printf("%s\n", valuePtr);
       continue;
     }
     if (!strncmp(lineBuffer, "VER", 3)) { // Title version
@@ -248,39 +260,20 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
   // Get the end of the executable path
   valuePtr = strchr(bootPath, ';');
   if (!valuePtr) {
-    printf("CDROM ERROR: Invalid boot path");
+    printf("CDROM: Invalid boot path\n");
     return -ENOENT;
   }
 
-  switch (type) {
-  case DiscType_PS1:
-    // Make sure value can fit at least "psx.exe"
-    if ((valuePtr - bootPath) < 7)
-      return -ENOENT;
+  // Make sure value can fit at least the title ID
+  if ((valuePtr - bootPath) < 11)
+    return -ENOENT;
 
-    // Handle titles with generic executable name
-    if (!strncmp(valuePtr - 7, "psx.exe", 7) || !strncmp(valuePtr - 7, "PSX.EXE", 7)) {
-      valuePtr -= 7;
-      const char *tID = getPS1GenericTitleID(valuePtr);
-      if (tID)
-        strncpy(titleID, tID, 12);
-
-      break;
-    }
-    // Else, get title ID from exectuable path (identical to PS2 discs)
-  case DiscType_PS2:
-    // Make sure value can fit at least the title ID
-    if ((valuePtr - bootPath) < 11)
-      return -ENOENT;
-
-    valuePtr -= 11;
-    if (valuePtr[4] == '_' && valuePtr[8] == '.') // Do basic sanity check
-      strncpy(titleID, valuePtr, 11);
-
-    break;
-  default:
-    msg("CDROM ERROR: Unable to determine the disc type");
-    return -ENODEV;
+  valuePtr -= 11;
+  if (valuePtr[4] == '_' && valuePtr[8] == '.') // Do a basic sanity check
+    strncpy(titleID, valuePtr, 11);
+  else {
+    printf("CDROM: Invalid executable path\n");
+    return -ENOENT;
   }
 
   return type;
@@ -397,6 +390,7 @@ const struct {
     {"1995113010450000", "SLPS_001.46"}, // Keiba Saishou no Housoku '96 Vol. 1 (Japan) - http://redump.org/disc/22945/
     {"1995092205430500", "SLPS_001.52"}, // Yaku: Yuujou Dangi (Japan) - http://redump.org/disc/4668/
     {"1995121620000000", "SLPS_001.73"}, // Alnam no Kiba: Juuzoku Juuni Shinto Densetsu (Japan) - http://redump.org/disc/11199/
+    {"1996072211000000", "SLPS_005.49"}, // DigiCro: Digital Number Crossword (Japan), missing SYSTEM.CNF - http://redump.org/disc/6400/
     //
     // SCPS
     //
@@ -404,6 +398,8 @@ const struct {
     {"1995032400000000", "SCPS_100.07"}, // Jumping Flash! Aloha Danshaku Funky Daisakusen no Maki (Japan) - http://redump.org/disc/4051/
     {"1995052420065100", "SCPS_100.08"}, // Arc the Lad (Japan) (Rev 0) - http://redump.org/disc/67966/
                                          // Arc the Lad (Japan) (Rev 1) - http://redump.org/disc/1472/
+    {"1995061723590000", "SCPS_100.09"}, // Philosoma (Japan), missing SYSTEM.CNF — http://redump.org/disc/3778/
+    {"1995103122331500", "SCPS_100.16"}, // Horned Owl (Japan), missing SYSTEM.CNF — http://redump.org/disc/4667/
 };
 
 // Attempts to guess PS1 title ID from volume creation date stored in PVD

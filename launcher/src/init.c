@@ -27,6 +27,7 @@
 IRX_DEFINE(iomanX);
 IRX_DEFINE(fileXio);
 IRX_DEFINE(poweroff);
+IRX_DEFINE(xparam);
 IRX_DEFINE(sio2man);
 IRX_DEFINE(mcman);
 IRX_DEFINE(mcserv);
@@ -116,9 +117,16 @@ void rebootPS2() {
 // Needs initModules(Device_Basic) to be called first
 void shutdownPS2() {
   sceSifInitRpc(0);
-  ModuleListEntry poweroff = INT_MODULE(poweroff, NULL, 0);
-  loadModule(&poweroff);
+  SifExecModuleBuffer(poweroff_irx, size_poweroff_irx, 0, NULL, NULL);
   poweroffShutdown();
+}
+
+// Sets IOP emulation flags for Deckard consoles
+// Needs initModules(Device_Basic) to be called first
+void applyXPARAM(char *gameID) {
+  sceSifInitRpc(0);
+  SifExecModuleBuffer(xparam_irx, size_xparam_irx, strlen(gameID)+1, gameID, NULL);
+  sceSifExitRpc();
 }
 
 // Initializes IOP modules for given device type
