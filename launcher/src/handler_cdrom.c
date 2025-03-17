@@ -170,13 +170,15 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
     if (skipPS2LOGO) {
       // Apply IOP emulation flags for Deckard consoles
       // (simply returns on PGIF consoles)
-      applyXPARAM(titleID);
+      if (titleID[0] != '\0')
+        applyXPARAM(titleID);
+
       sceSifExitCmd();
-      // Launch PS2 Game directly
+      // Launch PS2 game directly
       LoadExecPS2(bootPath, 0, NULL);
     } else {
       sceSifExitCmd();
-      // Launch PS2 Game with rom0:PS2LOGO
+      // Launch PS2 game with rom0:PS2LOGO
       char *argv[] = {bootPath};
       LoadExecPS2("rom0:PS2LOGO", 1, argv);
     }
@@ -271,10 +273,6 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
   valuePtr -= 11;
   if (valuePtr[4] == '_' && valuePtr[8] == '.') // Do a basic sanity check
     strncpy(titleID, valuePtr, 11);
-  else {
-    printf("CDROM: Invalid executable path\n");
-    return -ENOENT;
-  }
 
   return type;
 }
