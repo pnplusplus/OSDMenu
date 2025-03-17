@@ -119,21 +119,11 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
   char *titleVersion = calloc(sizeof(char), MAX_STR);
   discType = parseDiscCNF(bootPath, titleID, titleVersion);
   if (discType < 0) {
-    // Apparently not all PS1 titles have SYSTEM.CNF...
-    // Can't rely on libcdvd disc type due to MechaPwn
-    // force unlock forcing all discs to identify as PS2 DVD
-    const char *tID = getPS1GenericTitleID();
-    if (tID) {
-      printf("Guessed the title ID from disc PVD: %s\n", tID);
-      strncpy(titleID, tID, 11);
-      discType = DiscType_PS1;
-    } else {
-      msg("CDROM ERROR: Failed to parse SYSTEM.CNF\n");
-      free(bootPath);
-      free(titleID);
-      free(titleVersion);
-      return -ENOENT;
-    }
+    msg("CDROM ERROR: Failed to parse SYSTEM.CNF\n");
+    free(bootPath);
+    free(titleID);
+    free(titleVersion);
+    return -ENOENT;
   }
 
   if (titleID[0] != '\0') {
@@ -196,6 +186,14 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
   // Open SYSTEM.CNF
   int fd = open("cdrom0:\\SYSTEM.CNF;1", O_RDONLY);
   if (fd < 0) {
+    // Apparently not all PS1 titles have SYSTEM.CNF
+    // Try to guess the title ID from the disc PVD
+    const char *tID = getPS1GenericTitleID();
+    if (tID) {
+      printf("Guessed the title ID from disc PVD: %s\n", tID);
+      strncpy(titleID, tID, 11);
+      return DiscType_PS1;
+    }
     return -ENOENT;
   }
 
@@ -259,20 +257,27 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
   fclose(file);
   free(cnf);
 
-  // Get the end of the executable path
-  valuePtr = strchr(bootPath, ';');
+  // Get the start of the executable path
+  valuePtr = strchr(bootPath, '\\');
   if (!valuePtr) {
-    printf("CDROM: Invalid boot path\n");
-    return -ENOENT;
+    valuePtr = strchr(bootPath, ':'); // PS1 CDs don't have \ in the path
+    if (!valuePtr) {
+      printf("CDROM: Failed to parse the executable for the title ID\n");
+      return type;
+    }
   }
+  valuePtr++;
 
-  // Make sure value can fit at least the title ID
-  if ((valuePtr - bootPath) < 11)
-    return -ENOENT;
-
-  valuePtr -= 11;
-  if (valuePtr[4] == '_' && valuePtr[8] == '.') // Do a basic sanity check
+  if ((strlen(valuePtr) > 11) && (valuePtr[4] == '_') && (valuePtr[8] == '.')) // Do a basic sanity check
     strncpy(titleID, valuePtr, 11);
+  else {
+    // Try to guess the title ID from the disc PVD
+    const char *tID = getPS1GenericTitleID();
+    if (tID) {
+      printf("Guessed the title ID from disc PVD: %s\n", tID);
+      strncpy(titleID, tID, 11);
+    }
+  }
 
   return type;
 }
