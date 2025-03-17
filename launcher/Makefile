@@ -25,6 +25,8 @@ IRX_FILES += ps2dev9.irx
 IRX_FILES += ata_bd.irx ps2atad.irx ps2hdd.irx ps2fs.irx
 IRX_FILES += smap_udpbd.irx
 IRX_FILES += iLinkman.irx IEEE1394_bd_mini.irx
+# XPARAM
+IRX_FILES += xparam.irx
 
 ELF_FILES += loader.elf
 RES_FILES += icon_A.sys icon_C.sys icon_J.sys
@@ -53,6 +55,7 @@ $(EE_BIN_PKD): $(EE_BIN)
 
 clean:
 	$(MAKE) -C loader clean
+	$(MAKE) -C iop/xparam clean
 	$(MAKE) -C iop/smap_udpbd clean
 	rm -rf $(EE_OBJS_DIR) $(EE_BIN) $(EE_BIN_PKD)
 
@@ -68,6 +71,13 @@ iop/smap_udpbd/smap_udpbd.irx: iop/smap_udpbd
 
 %smap_udpbd_irx.c: iop/smap_udpbd/smap_udpbd.irx
 	$(BIN2C) iop/smap_udpbd/$(*:$(EE_SRC_DIR)%=%)smap_udpbd.irx $@ $(*:$(EE_SRC_DIR)%=%)smap_udpbd_irx
+
+# xparam.irx
+iop/xparam/xparam.irx: iop/xparam
+	$(MAKE) -C $<
+
+%xparam_irx.c: iop/xparam/xparam.irx
+	$(BIN2C) iop/xparam/$(*:$(EE_SRC_DIR)%=%)xparam.irx $@ $(*:$(EE_SRC_DIR)%=%)xparam_irx
 
 # mmceman module, temporary override until it lands in the SDK
 %mmceman_irx.c:
