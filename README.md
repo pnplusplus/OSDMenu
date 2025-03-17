@@ -3,12 +3,14 @@
 This is an attempt at porting Free McBoot 1.8 OSDSYS patches to modern PS2SDK.  
 Tested on SCPH-39004 and SCPH-70000.
 
+Will not work on "protokernel" systems (SCPH-10000, SCPH-15000) and possibly SCPH-18000 and SCPH-50009.
+
 ## Usage
 
-1. Copy `patcher.elf` and `launcher.elf` to `mc?:/SYS-CONF/`  
-   Copy DKWDRV to `mc?:/SYS-CONF/DKWDRV.ELF` _(optional)_ 
+1. Copy `patcher.elf` and `launcher.elf` to `mc?:/BOOT/`  
+   Copy DKWDRV to `mc?:/BOOT/DKWDRV.ELF` _(optional)_ 
 2. Edit `mc?:/SYS-CONF/FREEMCB.CNF` [as you see fit](#fmcb-handler)
-3. Configure PS2BBL to launch `mc?:/SYS-CONF/patcher.elf` or launch it manually from LaunchELF
+3. Configure PS2BBL to launch `mc?:/BOOT/patcher.elf` or launch it manually from LaunchELF
 
 ## Key differences from FMCB 1.8:
 - All initialization code is removed in favor of using a separate bootloader to start the patcher (e.g. [PS2BBL](https://github.com/israpps/PlayStation2-Basic-BootLoader))
@@ -24,7 +26,7 @@ Due to memory limitations and the need to support more devices, the original FMC
 ## Patcher
 
 This is a slimmed-down and refactored version of OSDSYS patches from FMCB 1.8 for modern PS2SDK.  
-It reads settings from `mc?:/SYS-CONF/FREEMCB.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
+It reads settings from `mc?:/BOOT/FREEMCB.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
 - Custom OSDSYS menu entries
 - Infinite scrolling
 - Custom button prompts and menu header
@@ -34,7 +36,7 @@ It reads settings from `mc?:/SYS-CONF/FREEMCB.CNF` and patches the `rom0:OSDSYS`
 - Override PS1 and PS2 disc launch functions with custom code that starts the launcher
 
 See the list for supported `FREEMCB.CNF` options [here](#freemcbcnf).  
-For every menu item and disc launch, it starts the launcher from `mc?:/SYS-CONF/launcher.elf` and passes the menu index to it.
+For every menu item and disc launch, it starts the launcher from `mc?:/BOOT/launcher.elf` and passes the menu index to it.
 
 ## Launcher
 
@@ -55,7 +57,7 @@ Supported paths are:
 
 ### `udpbd` handler
 
-Reads PS2 IP address from `mc?:SYS-CONF/IPCONFIG.DAT`
+Reads PS2 IP address from `mc?:/SYS-CONF/IPCONFIG.DAT`
 
 ### `cdrom` handler
 
@@ -63,7 +65,7 @@ Waits for the disc to be detected and launches it.
 Supports the following arguments:
 - `-nologo` — launches the game executable directly, bypassing `rom0:PS2LOGO`
 - `-nogameid` — disables visual game ID
-- `-dkwdrv` — when PS1 disc is detected, launches DKWDRV from `mc?:/SYS-CONF/DKWDRV.ELF` instead of `rom0:PS1DRV`
+- `-dkwdrv` — when PS1 disc is detected, launches DKWDRV from `mc?:/BOOT/DKWDRV.ELF` instead of `rom0:PS1DRV`
 - `-dkwdrv=mc?:/<path to DKWDRV>` — same as `-dkwdrv`, but with custom DKWDRV path.
 
 For PS1 CDs with generic executable name (e.g. `PSX.EXE`), attempts to guess the game ID using the volume creation date
@@ -120,5 +122,5 @@ New to this launcher:
 - [TonyHax International](https://github.com/alex-free/tonyhax) developers for PS1 game ID detection for generic executables.
 - Maximus32 for creating the [`smap_udpbd` module](
 https://github.com/rickgaiser/neutrino)
-- El_Isra for making [PS2BBL](https://github.com/israpps/PlayStation2-Basic-BootLoader)
+- Matías Israelson for making [PS2BBL](https://github.com/israpps/PlayStation2-Basic-BootLoader)
 - CosmicScale for [RetroGEM Disc Launcher](https://github.com/CosmicScale/Retro-GEM-PS2-Disc-Launcher)
