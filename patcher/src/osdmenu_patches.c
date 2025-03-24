@@ -21,7 +21,7 @@ typedef struct {
 } customVersionEntry;
 
 // Table for custom menu entries
-// Supports dynamic variables that cam be updated every time the version menu opens
+// Supports dynamic variables that will be updated every time the version menu opens
 customVersionEntry entries[] = {
     {"OSDMenu Patch", "\ar0.80" GIT_VERSION "\ar0.00", NULL},
     {"ROM", romverValue, NULL},
@@ -50,7 +50,7 @@ void versionInfoInitHandler() {
   //
   // Can be 0 if entry doesn't have a submenu.
 
-  // Find the first empty entry or an entry that has a name located in the patcher address space (<0x100000)
+  // Find the first empty entry or an entry with the name located in the patcher address space (<0x100000)
   uint32_t ptr = verinfoStringTableAddr;
   while (1) {
     if ((_lw(ptr) < 0x100000) || (!_lw(ptr) && !_lw(ptr + 4) && !_lw(ptr + 8)))
@@ -91,8 +91,8 @@ void patchVersionInfo(uint8_t *osd) {
   versionInfoInit = (void *)tmp;
 
   // Find the string table address in versionInfoInit
-  // Even if it's the same on all ROM versions, this acts as a basic sanity check to make sure
-  // the patch is replacing the actual versionInfoInit
+  // Even if it's the same in all ROM versions >=1.20, this acts as a basic sanity check
+  // to make sure the patch is replacing the actual versionInfoInit
   uint8_t *tableptr = findPatternWithMask((uint8_t *)versionInfoInit, 0x200, (uint8_t *)patternVersionStringTable,
                                           (uint8_t *)patternVersionStringTable_mask, sizeof(patternVersionStringTable));
   if (!tableptr)
@@ -122,8 +122,8 @@ void patchVersionInfo(uint8_t *osd) {
     romverValue[1] = '\0'; // Put placeholer value
   }
 
-  // Mechacon revision
-  if (settings.romver[0] != '\0')
+  // MechaCon revision
+  if (settings.mechaconRev[0] != '\0')
     strcpy(mechaconRev, settings.mechaconRev);
   else
     mechaconRev[0] = '-';
