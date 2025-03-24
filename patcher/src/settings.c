@@ -272,20 +272,21 @@ void initVariables() {
   // Init MechaCon revision string
   unsigned int result, status;
   uint8_t outBuffer[4];
-  for (int i = 0; i <= 100; i++) {
-    if ((result = sceCdMV(outBuffer, &status)) && ((status & 0x80) == 0)) {
-      settings.mechaconRev[0] = outBuffer[0] + '0';
-      settings.mechaconRev[1] = '.';
-      if (outBuffer[1] < 10) {
-        settings.mechaconRev[2] = '0';
-        settings.mechaconRev[3] = '0' + outBuffer[1];
-        settings.mechaconRev[4] = '\0';
-      } else {
-        settings.mechaconRev[2] = '0' + (outBuffer[1] / 10);
-        settings.mechaconRev[3] = '0' + (outBuffer[1] % 10);
-        settings.mechaconRev[4] = '\0';
-      }
-      break;
+  if ((result = sceCdMV(outBuffer, &status)) && ((status & 0x80) == 0)) {
+    settings.mechaconRev[0] = outBuffer[0] + '0';
+
+    if (outBuffer[0] > 4)   // If major version is >=5,
+      outBuffer[1] &= 0xFE; // clear the last bit (DTL flag on Dragon consoles)
+
+    settings.mechaconRev[1] = '.';
+    if (outBuffer[1] < 10) {
+      settings.mechaconRev[2] = '0';
+      settings.mechaconRev[3] = '0' + outBuffer[1];
+      settings.mechaconRev[4] = '\0';
+    } else {
+      settings.mechaconRev[2] = '0' + (outBuffer[1] / 10);
+      settings.mechaconRev[3] = '0' + (outBuffer[1] % 10);
+      settings.mechaconRev[4] = '\0';
     }
   }
 }
