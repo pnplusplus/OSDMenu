@@ -2,7 +2,7 @@
 #include "fmcb_patterns.h"
 #include "init.h"
 #include "loader.h"
-#include "new_patches.h"
+#include "osdmenu_patches.h"
 #include "settings.h"
 #include <kernel.h>
 #include <loadfile.h>

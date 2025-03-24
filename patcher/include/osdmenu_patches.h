@@ -1,5 +1,5 @@
-#ifndef _NEW_PATCHES_H_
-#define _NEW_PATCHES_H_
+#ifndef _OSDMENU_PATCHES_H_
+#define _OSDMENU_PATCHES_H_
 // Additional patch patterns for osdmenu-launcher
 #include <stdint.h>
 

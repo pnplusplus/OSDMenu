@@ -1,12 +1,10 @@
 
 #include "fmcb_patches.h"
-#include "new_patterns.h"
+#include "osdmenu_patterns.h"
 #include "settings.h"
 #include <debug.h>
 #include <stdint.h>
 #include <string.h>
-#define NEWLIB_PORT_AWARE
-#include "fileio.h"
 
 //
 // Version info menu patch

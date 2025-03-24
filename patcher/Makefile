@@ -15,8 +15,7 @@ EE_INCS = -I../common -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include -I$(PS2S
 EE_LINKFILE = linkfile
 EE_LIBS = -lpatches
 
-EE_OBJS = main.o settings.o init.o loader.o fmcb_patches.o new_patches.o
-
+EE_OBJS = main.o settings.o init.o loader.o fmcb_patches.o osdmenu_patches.o
 
 # C compiler flags
 EE_CFLAGS := -D_EE -O2 -G0 -Wall $(EE_CFLAGS) -DGIT_VERSION="\"${GIT_VERSION}\""
