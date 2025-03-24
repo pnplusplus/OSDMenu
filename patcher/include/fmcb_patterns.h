@@ -1,6 +1,6 @@
-#ifndef _OSDSYS_PATTERNS_H_
-#define _OSDSYS_PATTERNS_H_
-// FMCB 1.8 OSDSYS patches by Neme
+#ifndef _FMCB_PATTERNS_H_
+#define _FMCB_PATTERNS_H_
+// FMCB 1.8 OSDSYS patch patterns by Neme
 #include <stdint.h>
 
 // ExecPS2 pattern for patching OSDSYS unpacker on newer PS2 with compressed OSDSYS

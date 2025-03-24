@@ -5,6 +5,8 @@
 # Proceed at your own risk, and may the legal forces be ever in your favor.
 ENABLE_SPLASH ?= 1
 
+GIT_VERSION := $(shell git describe --always --dirty --tags --exclude nightly)
+
 EE_BIN_PKD = patcher.elf
 EE_BIN = patcher_unc.elf
 
@@ -13,12 +15,12 @@ EE_INCS = -I../common -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include -I$(PS2S
 EE_LINKFILE = linkfile
 EE_LIBS = -lpatches
 
-EE_OBJS = main.o patches.o settings.o init.o loader.o
+EE_OBJS = main.o settings.o init.o loader.o fmcb_patches.o new_patches.o
 
 
 # C compiler flags
-EE_CFLAGS := -D_EE -O2 -G0 -Wall $(EE_CFLAGS)
-EE_LDFLAGS += -Wl,-zmax-page-size=128 -s -Wl,--gc-sections
+EE_CFLAGS := -D_EE -O2 -G0 -Wall $(EE_CFLAGS) -DGIT_VERSION="\"${GIT_VERSION}\""
+EE_LDFLAGS += -Wl,-zmax-page-size=128 -Wl,--gc-sections -s
 EE_CFLAGS += -fdata-sections -ffunction-sections
 
 # Reduce binary size by using newlib-nano

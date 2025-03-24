@@ -1,5 +1,5 @@
+#include "fmcb_patches.h"
 #include "init.h"
-#include "patches.h"
 #include "settings.h"
 #include "splash.h"
 #include <kernel.h>

@@ -1,7 +1,8 @@
 // FMCB 1.8 OSDSYS patches by Neme
+#include "fmcb_patterns.h"
 #include "init.h"
 #include "loader.h"
-#include "osdsys_patterns.h"
+#include "new_patches.h"
 #include "settings.h"
 #include <kernel.h>
 #include <loadfile.h>
@@ -620,6 +621,8 @@ void patchSkipHDD(uint8_t *osd) {
 
 // Applies patches and executes OSDSYS
 void patchExecuteOSDSYS(void *epc, void *gp) {
+  // while (1) {
+  // }
   int n = 0;
   char *args[5], *ptr;
 
@@ -632,6 +635,9 @@ void patchExecuteOSDSYS(void *epc, void *gp) {
     patchMenuInfiniteScrolling((uint8_t *)epc);
     patchMenuButtonPanel((uint8_t *)epc);
   }
+
+  // Apply version menu patch
+  patchVersionInfo((uint8_t *)epc);
 
   // Patch the video mode only if different from AUTO
   if (strcmp(settings.videoMode, "AUTO"))

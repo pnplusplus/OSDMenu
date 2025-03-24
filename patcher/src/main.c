@@ -1,9 +1,10 @@
+#include "fmcb_patches.h"
 #include "init.h"
-#include "patches.h"
 #include "settings.h"
 #include "splash.h"
 #include <kernel.h>
 #include <ps2sdkapi.h>
+#include <stdlib.h>
 #include <string.h>
 #define NEWLIB_PORT_AWARE
 #include <fileio.h>
@@ -67,14 +68,7 @@ int main(int argc, char *argv[]) {
   // Respect preferred mode
   if (!strcmp(settings.videoMode, "AUTO")) {
     // If mode is not set, read console region from ROM
-    uint8_t romver[5];
-    int fdn = 0;
-    if ((fdn = fioOpen("rom0:ROMVER", FIO_O_RDONLY)) > 0) {
-      fioRead(fdn, romver, sizeof(romver));
-      fioClose(fdn);
-    }
-
-    if (romver[4] == 'E')
+    if (settings.romver[4] == 'E')
       vmode = PAL_640_512_32;
   } else if (!strcmp(settings.videoMode, "PAL"))
     vmode = PAL_640_512_32;

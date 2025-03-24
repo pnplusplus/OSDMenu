@@ -43,6 +43,10 @@ typedef struct {
 
   char *launcherPath; // Path to launcher ELF
   char *dkwdrvPath;   // Path to DKWDRV
+
+  // Variables
+  char romver[15]; // ROMVER string, initialized before patching
+  char mechaconRev[5]; // MechaCon revision, initialized before patching
 } PatcherSettings;
 
 // Stores patcher settings and OSDSYS menu items

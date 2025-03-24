@@ -1,5 +1,6 @@
-#include "defaults.h"
 #include "settings.h"
+#include "defaults.h"
+#include <libcdvd-common.h>
 #include <stdlib.h>
 #include <string.h>
 #define NEWLIB_PORT_AWARE
@@ -258,6 +259,37 @@ int loadConfig(void) {
   return 0;
 }
 
+// Initializes static variables
+void initVariables() {
+  // Init ROMVER
+  int fdn = 0;
+  if ((fdn = fioOpen("rom0:ROMVER", FIO_O_RDONLY)) > 0) {
+    fioRead(fdn, settings.romver, 14);
+    settings.romver[14] = '\0';
+    fioClose(fdn);
+  }
+
+  // Init MechaCon revision string
+  unsigned int result, status;
+  uint8_t outBuffer[4];
+  for (int i = 0; i <= 100; i++) {
+    if ((result = sceCdMV(outBuffer, &status)) && ((status & 0x80) == 0)) {
+      settings.mechaconRev[0] = outBuffer[0] + '0';
+      settings.mechaconRev[1] = '.';
+      if (outBuffer[1] < 10) {
+        settings.mechaconRev[2] = '0';
+        settings.mechaconRev[3] = '0' + outBuffer[1];
+        settings.mechaconRev[4] = '\0';
+      } else {
+        settings.mechaconRev[2] = '0' + (outBuffer[1] / 10);
+        settings.mechaconRev[3] = '0' + (outBuffer[1] % 10);
+        settings.mechaconRev[4] = '\0';
+      }
+      break;
+    }
+  }
+}
+
 // Loads defaults
 void initConfig(void) {
   settings.mcSlot = 0;
@@ -299,4 +331,8 @@ void initConfig(void) {
   settings.skipPS2LOGO = 1;
   settings.disableGameID = 0;
   settings.useDKWDRV = 0;
+
+  settings.romver[0] = '\0';
+  settings.mechaconRev[0] = '\0';
+  initVariables();
 }

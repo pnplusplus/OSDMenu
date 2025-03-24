@@ -39,10 +39,8 @@ int initModules(void) {
 
   if ((ret = SifLoadModule("rom0:SIO2MAN", 0, NULL)) < 0)
     return ret;
-
   if ((ret = SifLoadModule("rom0:MCMAN", 0, NULL)) < 0)
     return ret;
-
   if ((ret = SifLoadModule("rom0:MCSERV", 0, NULL)) < 0)
     return ret;
 
