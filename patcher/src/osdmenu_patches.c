@@ -12,17 +12,11 @@
 // Version info menu patch
 //
 
-// Static variables, will be initialized in patchVersionInfo
+// Static variables
 static char romverValue[] = "\ar0.80VVVVRTYYYYMMDD\ar0.00";
 static char mechaconRev[13] = {0};
 static char eeRevision[5] = {0};
 static char gsRevision[5] = {0};
-
-typedef struct {
-  char *name;
-  char *value;          // Used for static values
-  char *(*valueFunc)(); // Used for dynamic values
-} customVersionEntry;
 
 // Returns a pointer to GParam array
 // GParam values:
@@ -34,47 +28,18 @@ typedef struct {
 // are set by OSDSYS at an unknown address when setting the video mode
 static uint16_t *(*sceGsGetGParam)(void) = NULL;
 
-// Formats single-byte number into M.mm string.
-// dst is expected to be at least 5 bytes long
-void formatRevision(char *dst, uint8_t rev) {
-  dst[0] = '0' + (rev >> 4);
-  dst[1] = '.';
-  dst[2] = '0' + ((rev & 0x0f) / 10);
-  dst[3] = '0' + ((rev & 0x0f) % 10);
-  dst[4] = '\0';
-}
+// Initializes version info menu strings
+static void (*versionInfoInit)(void);
+uint32_t verinfoStringTableAddr = 0;
 
-char *getVideoMode() {
-  if (!sceGsGetGParam)
-    return NULL;
+typedef struct {
+  char *name;
+  char *value;          // Used for static values
+  char *(*valueFunc)(); // Used for dynamic values
+} customVersionEntry;
 
-  uint16_t *gParam = sceGsGetGParam();
-  switch (gParam[1]) {
-  case GS_MODE_PAL:
-    return "PAL";
-  case GS_MODE_NTSC:
-    return "NTSC";
-  case GS_MODE_DTV_480P:
-    return "480p";
-  }
-
-  return "-";
-}
-
-char *getGSRevision() {
-  if (!sceGsGetGParam)
-    return NULL;
-
-  uint16_t *gParam = sceGsGetGParam();
-  if (gParam[3]) {
-    formatRevision(gsRevision, gParam[3]);
-    return gsRevision;
-  }
-
-  gsRevision[0] = '-';
-  gsRevision[1] = '\0';
-  return gsRevision;
-}
+char *getVideoMode();
+char *getGSRevision();
 
 // Table for custom menu entries
 // Supports dynamic variables that will be updated every time the version menu opens
@@ -87,8 +52,6 @@ customVersionEntry entries[] = {
     {"MechaCon", mechaconRev, NULL},                          //
 };
 
-static void (*versionInfoInit)(void);
-uint32_t verinfoStringTableAddr = 0;
 
 // This function will be called every time the version menu opens
 void versionInfoInitHandler() {
@@ -139,6 +102,16 @@ void versionInfoInitHandler() {
     ptr += 12;
   }
 };
+
+// Formats single-byte number into M.mm string.
+// dst is expected to be at least 5 bytes long
+void formatRevision(char *dst, uint8_t rev) {
+  dst[0] = '0' + (rev >> 4);
+  dst[1] = '.';
+  dst[2] = '0' + ((rev & 0x0f) / 10);
+  dst[3] = '0' + ((rev & 0x0f) % 10);
+  dst[4] = '\0';
+}
 
 // Extends version menu with custom entries by overriding the function called every time the version menu opens
 void patchVersionInfo(uint8_t *osd) {
@@ -205,4 +178,36 @@ void patchVersionInfo(uint8_t *osd) {
 
   // EE Revision
   formatRevision(eeRevision, GetCop0(15));
+}
+
+char *getVideoMode() {
+  if (!sceGsGetGParam)
+    return NULL;
+
+  uint16_t *gParam = sceGsGetGParam();
+  switch (gParam[1]) {
+  case GS_MODE_PAL:
+    return "PAL";
+  case GS_MODE_NTSC:
+    return "NTSC";
+  case GS_MODE_DTV_480P:
+    return "480p";
+  }
+
+  return "-";
+}
+
+char *getGSRevision() {
+  if (!sceGsGetGParam)
+    return NULL;
+
+  uint16_t *gParam = sceGsGetGParam();
+  if (gParam[3]) {
+    formatRevision(gsRevision, gParam[3]);
+    return gsRevision;
+  }
+
+  gsRevision[0] = '-';
+  gsRevision[1] = '\0';
+  return gsRevision;
 }
