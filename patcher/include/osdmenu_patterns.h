@@ -26,4 +26,15 @@ static uint32_t patternVersionStringTable[] = {
 };
 static uint32_t patternVersionStringTable_mask[] = {0xffff0000, 0x00000018, 0xffff0000};
 
+// Pattern for getting the address of the sceGetGParam function
+static uint32_t patternSCEGetGParam[] = {
+    // Searching for particular pattern in sceGsResetGraph
+    0x0c000000, //     jal sceGsGetGParam
+    0x00000000, //     nop
+    0x3c031200, //     lui v1,0x1200 // REG_GS_CSR = 0x200
+    0x24040200, //     li a0,0x200
+    0x34631000, //     ori v1,v1,0x1000
+};
+static uint32_t patternSCEGetGParam_mask[] = {0xfc000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+
 #endif

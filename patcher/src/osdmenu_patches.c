@@ -3,6 +3,8 @@
 #include "osdmenu_patterns.h"
 #include "settings.h"
 #include <debug.h>
+#include <kernel.h>
+#include <libgs.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -13,6 +15,8 @@
 // Static variables, will be initialized in patchVersionInfo
 static char romverValue[] = "\ar0.80VVVVRTYYYYMMDD\ar0.00";
 static char mechaconRev[13] = {0};
+static char eeRevision[5] = {0};
+static char gsRevision[5] = {0};
 
 typedef struct {
   char *name;
@@ -20,12 +24,67 @@ typedef struct {
   char *(*valueFunc)(); // Used for dynamic values
 } customVersionEntry;
 
+// Returns a pointer to GParam array
+// GParam values:
+// 0 — Interlaced/non-interlaced mode
+// 1 — Video mode (PAL/NTSC)
+// 2 — Field mode (Field/Frame)
+// 3 — GS Revision
+// Can't use PS2SDK libgs function because these parameters
+// are set by OSDSYS at an unknown address when setting the video mode
+static uint16_t *(*sceGsGetGParam)(void) = NULL;
+
+// Formats single-byte number into M.mm string.
+// dst is expected to be at least 5 bytes long
+void formatRevision(char *dst, uint8_t rev) {
+  dst[0] = '0' + (rev >> 4);
+  dst[1] = '.';
+  dst[2] = '0' + ((rev & 0x0f) / 10);
+  dst[3] = '0' + ((rev & 0x0f) % 10);
+  dst[4] = '\0';
+}
+
+char *getVideoMode() {
+  if (!sceGsGetGParam)
+    return NULL;
+
+  uint16_t *gParam = sceGsGetGParam();
+  switch (gParam[1]) {
+  case GS_MODE_PAL:
+    return "PAL";
+  case GS_MODE_NTSC:
+    return "NTSC";
+  case GS_MODE_DTV_480P:
+    return "480p";
+  }
+
+  return "-";
+}
+
+char *getGSRevision() {
+  if (!sceGsGetGParam)
+    return NULL;
+
+  uint16_t *gParam = sceGsGetGParam();
+  if (gParam[3]) {
+    formatRevision(gsRevision, gParam[3]);
+    return gsRevision;
+  }
+
+  gsRevision[0] = '-';
+  gsRevision[1] = '\0';
+  return gsRevision;
+}
+
 // Table for custom menu entries
 // Supports dynamic variables that will be updated every time the version menu opens
 customVersionEntry entries[] = {
-    {"OSDMenu Patch", "\ar0.80" GIT_VERSION "\ar0.00", NULL},
-    {"ROM", romverValue, NULL},
-    {"MechaCon", mechaconRev, NULL},
+    {"Video Mode", NULL, getVideoMode},                       //
+    {"OSDMenu Patch", "\ar0.80" GIT_VERSION "\ar0.00", NULL}, //
+    {"ROM", romverValue, NULL},                               //
+    {"Emotion Engine", eeRevision, NULL},                     //
+    {"Graphics Synthesizer", NULL, getGSRevision},            //
+    {"MechaCon", mechaconRev, NULL},                          //
 };
 
 static void (*versionInfoInit)(void);
@@ -63,12 +122,19 @@ void versionInfoInitHandler() {
   }
 
   // Add custom entries
+  char *value = NULL;
   for (int i = 0; i < sizeof(entries) / sizeof(customVersionEntry); i++) {
-    _sw((uint32_t)entries[i].name, ptr);
+    value = NULL;
     if (entries[i].valueFunc)
-      _sw((uint32_t)entries[i].valueFunc(), ptr + 4);
-    else
-      _sw((uint32_t)entries[i].value, ptr + 4);
+      value = entries[i].valueFunc();
+    else if (entries[i].value)
+      value = entries[i].value;
+
+    if (!value)
+      continue;
+
+    _sw((uint32_t)entries[i].name, ptr);
+    _sw((uint32_t)value, ptr + 4);
     _sw(0, ptr + 8);
     ptr += 12;
   }
@@ -113,6 +179,15 @@ void patchVersionInfo(uint8_t *osd) {
   tmp |= ((uint32_t)versionInfoInitHandler >> 2);
   _sw(tmp, (uint32_t)ptr); // jal versionInfoInitHandler
 
+  // Find sceGsGetGParam address
+  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternSCEGetGParam, (uint8_t *)patternSCEGetGParam_mask, sizeof(patternSCEGetGParam));
+  if (ptr) {
+    tmp = _lw((uint32_t)ptr);
+    tmp &= 0x03ffffff;
+    tmp <<= 2;
+    sceGsGetGParam = (void *)tmp;
+  }
+
   // Initialize static values
   // ROM version
   if (settings.romver[0] != '\0') {
@@ -127,4 +202,7 @@ void patchVersionInfo(uint8_t *osd) {
     strcpy(mechaconRev, settings.mechaconRev);
   else
     mechaconRev[0] = '-';
+
+  // EE Revision
+  formatRevision(eeRevision, GetCop0(15));
 }
