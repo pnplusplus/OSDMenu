@@ -3,13 +3,6 @@
 // Additional patch patterns for osdmenu-launcher
 #include <stdint.h>
 
-// Extends version menu with custom entries
-void patchVersionInfo(uint8_t *osd);
-
-//
-// Patterns
-//
-
 // Pattern for injecting custom entries into the Version submenu
 static uint32_t patternVersionInit[] = {
     // Search pattern in the OSD pad handler table (at address 0x208800 for ROMVER 0200E20040614):
@@ -20,7 +13,7 @@ static uint32_t patternVersionInit[] = {
     0x1000ffad, //     beq zero, zero, <switch>
     0x00000000, //     nop
 };
-static uint32_t patternVersionInit_mask[] = {0xffffffff, 0xff000000, 0xffffffff, 0xffffffff, 0xffffffff};
+static uint32_t patternVersionInit_mask[] = {0xffffffff, 0xfc000000, 0xffffffff, 0xffffffff, 0xffffffff};
 
 // Pattern for getting the Version submenu string table address from the versionInfoInit function.
 // Address will point to the first string location ("Console")

@@ -36,21 +36,22 @@ static uint32_t patternOSDString[] = {
 static uint32_t patternOSDString_mask[] = {0xffffffff, 0xffff0000, 0xffffffff, 0xffff0000, 0xffffffff, //
                                            0xffffffff, 0xffffffff};
 
-// Pattern for patching the user input handling function
+// Pattern for patching the user input handling function, compatible with both CEX and DEX
+// Slightly different offsets on DEX >=2.20 are likely caused by the addition of region select menu
 static uint32_t patternUserInputHandler[] = {
-    0x1000000e, //     beq	zero, zero, exit
-    0xdfbf0010, //     ld	ra, $0010(sp)
+    0x10000000, //     beq	zero, zero, exit
+    0xdfbf0000, //     ld	ra, $00xx(sp)
     0x24040001, // L1: li	a0, 1		# the 2nd menu item (sys conf)
     0x8c430000, //     lw	v1, $xxxx(v0)	# current selection
-    0x1464000a, //     bne	v1, a0, exit	# sys config not selected?
-    0xdfbf0010, //     ld	ra, $0010(sp)
+    0x14640000, //     bne	v1, a0, exit	# sys config not selected?
+    0xdfbf0000, //     ld	ra, $00xx(sp)
     0x0c000000, //     jal	StartSysConfig
     0x00000000, //     nop
-    0x10000006, //     beq	zero, zero, exit
-    0xdfbf0010  //     ld	ra, $0010(sp)
+    0x10000000, //     beq	zero, zero, exit
+    0xdfbf0000  //     ld	ra, $00xx(sp)
 };
-static uint32_t patternUserInputHandler_mask[] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffff0000, 0xffffffff,
-                                                  0xffffffff, 0xfc000000, 0xffffffff, 0xffffffff, 0xffffffff};
+static uint32_t patternUserInputHandler_mask[] = {0xffffff00, 0xffffff00, 0xffffffff, 0xffff0000, 0xffffff00,
+                                                  0xffffff00, 0xfc000000, 0xffffffff, 0xffffff00, 0xffffff00};
 
 // Pattern for patching the draw functions for selected/unselected items
 static uint32_t patternDrawMenuItem[] = {

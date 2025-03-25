@@ -273,6 +273,7 @@ void initVariables() {
   unsigned int isDebug = 0;
   uint8_t outBuffer[4];
   if (sceCdMV(outBuffer, &isDebug)) { // Not checking the status bit
+    isDebug = 0;
     settings.mechaconRev[0] = outBuffer[0] + '0';
 
     if (outBuffer[0] > 4) {
