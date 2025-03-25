@@ -270,13 +270,16 @@ void initVariables() {
   }
 
   // Init MechaCon revision string
-  unsigned int result, status;
+  unsigned int isDebug = 0;
   uint8_t outBuffer[4];
-  if ((result = sceCdMV(outBuffer, &status)) && ((status & 0x80) == 0)) {
+  if (sceCdMV(outBuffer, &isDebug)) { // Not checking the status bit
     settings.mechaconRev[0] = outBuffer[0] + '0';
 
-    if (outBuffer[0] > 4)   // If major version is >=5,
-      outBuffer[1] &= 0xFE; // clear the last bit (DTL flag on Dragon consoles)
+    if (outBuffer[0] > 4) {
+      // If major version is >=5, clear the last bit (DTL flag on Dragon consoles)
+      isDebug = (outBuffer[1] & 0x1) ? 1 : 0;
+      outBuffer[1] &= 0xFE;
+    }
 
     settings.mechaconRev[1] = '.';
     if (outBuffer[1] < 10) {
@@ -288,6 +291,9 @@ void initVariables() {
       settings.mechaconRev[3] = '0' + (outBuffer[1] % 10);
       settings.mechaconRev[4] = '\0';
     }
+
+    if (isDebug)
+      strcat(settings.mechaconRev, " (Debug)");
   }
 }
 

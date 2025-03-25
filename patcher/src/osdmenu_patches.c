@@ -12,7 +12,7 @@
 
 // Static variables, will be initialized in patchVersionInfo
 static char romverValue[] = "\ar0.80VVVVRTYYYYMMDD\ar0.00";
-static char mechaconRev[5] = {0};
+static char mechaconRev[13] = {0};
 
 typedef struct {
   char *name;
