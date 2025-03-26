@@ -13,9 +13,6 @@
 // Defined in common/defaults.h
 char cnfPath[] = CONF_PATH;
 
-// Need to handle CNF parsing, including arguments. Needs other handlers first. For CDROM items, needs to respect PS2LOGO and DKWDRV flag from CNF
-// Loads ELF specified in FREEMCB.CNF on the memory card
-
 typedef struct linkedStr {
   char *str;
   struct linkedStr *next;
