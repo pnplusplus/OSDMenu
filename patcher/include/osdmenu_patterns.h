@@ -26,8 +26,8 @@ static uint32_t patternVersionStringTable[] = {
 };
 static uint32_t patternVersionStringTable_mask[] = {0xffff0000, 0x00000018, 0xffff0000};
 
-// Pattern for getting the address of the sceGetGParam function
-static uint32_t patternSCEGetGParam[] = {
+// Pattern for getting the address of the sceGsGetGParam function
+static uint32_t patternGsGetGParam[] = {
     // Searching for particular pattern in sceGsResetGraph
     0x0c000000, //     jal sceGsGetGParam
     0x00000000, //     nop
@@ -35,6 +35,21 @@ static uint32_t patternSCEGetGParam[] = {
     0x24040200, //     li a0,0x200
     0x34631000, //     ori v1,v1,0x1000
 };
-static uint32_t patternSCEGetGParam_mask[] = {0xfc000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+static uint32_t patternGsGetGParam_mask[] = {0xfc000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+
+// Pattern for getting the address of sceCdApplySCmd function
+// After finding this pattern, go back until reaching
+// _lw(addr) & 0xffff0000 == 0x27bd0000 (addiu $sp,$sp, ?) to get the function address.
+static uint32_t patternCdApplySCmd[] = {
+    //  0x27bd0000, // addiu $sp, $sp, ??
+    //  ~15-20 instructions
+    0x0c000000, //     jal WaitSema
+    0x00000000, //     ...
+    0x3c000000, //     lui v?, ?
+    0x24000019, //     li v?, 0x19
+    0x00000000, //     ...
+    0x0c000000, //     jal sceCdSyncS
+};
+static uint32_t patternCdApplySCmd_mask[] = {0xfc000000, 0x00000000, 0xfc000000, 0xfc00ffff, 0x00000000, 0xfc000000};
 
 #endif

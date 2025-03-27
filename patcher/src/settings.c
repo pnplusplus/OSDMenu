@@ -1,6 +1,5 @@
 #include "settings.h"
 #include "defaults.h"
-#include <libcdvd-common.h>
 #include <stdlib.h>
 #include <string.h>
 #define NEWLIB_PORT_AWARE
@@ -268,34 +267,6 @@ void initVariables() {
     settings.romver[14] = '\0';
     fioClose(fdn);
   }
-
-  // Init MechaCon revision string
-  unsigned int isDebug = 0;
-  uint8_t outBuffer[4];
-  if (sceCdMV(outBuffer, &isDebug)) { // Not checking the status bit
-    isDebug = 0;
-    settings.mechaconRev[0] = outBuffer[0] + '0';
-
-    if (outBuffer[0] > 4) {
-      // If major version is >=5, clear the last bit (DTL flag on Dragon consoles)
-      isDebug = (outBuffer[1] & 0x1) ? 1 : 0;
-      outBuffer[1] &= 0xFE;
-    }
-
-    settings.mechaconRev[1] = '.';
-    if (outBuffer[1] < 10) {
-      settings.mechaconRev[2] = '0';
-      settings.mechaconRev[3] = '0' + outBuffer[1];
-      settings.mechaconRev[4] = '\0';
-    } else {
-      settings.mechaconRev[2] = '0' + (outBuffer[1] / 10);
-      settings.mechaconRev[3] = '0' + (outBuffer[1] % 10);
-      settings.mechaconRev[4] = '\0';
-    }
-
-    if (isDebug)
-      strcat(settings.mechaconRev, " (Debug)");
-  }
 }
 
 // Loads defaults
@@ -341,6 +312,5 @@ void initConfig(void) {
   settings.useDKWDRV = 0;
 
   settings.romver[0] = '\0';
-  settings.mechaconRev[0] = '\0';
   initVariables();
 }

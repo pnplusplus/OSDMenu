@@ -46,7 +46,6 @@ typedef struct {
 
   // Variables
   char romver[15]; // ROMVER string, initialized before patching
-  char mechaconRev[13]; // MechaCon revision, initialized before patching
 } PatcherSettings;
 
 // Stores patcher settings and OSDSYS menu items

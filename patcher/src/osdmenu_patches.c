@@ -14,7 +14,7 @@
 
 // Static variables
 static char romverValue[] = "\ar0.80VVVVRTYYYYMMDD\ar0.00";
-static char mechaconRev[13] = {0};
+static char mechaconRev[] = "0.00 (Debug)";
 static char eeRevision[5] = {0};
 static char gsRevision[5] = {0};
 
@@ -28,6 +28,8 @@ static char gsRevision[5] = {0};
 // are set by OSDSYS at an unknown address when setting the video mode
 static uint16_t *(*sceGsGetGParam)(void) = NULL;
 
+static uint16_t *(*sceCdApplySCmd)(uint16_t cmdNum, const void *inBuff, uint16_t inBuffSize, void *outBuff) = NULL;
+
 // Initializes version info menu strings
 static void (*versionInfoInit)(void);
 uint32_t verinfoStringTableAddr = 0;
@@ -40,6 +42,7 @@ typedef struct {
 
 char *getVideoMode();
 char *getGSRevision();
+char *getMechaConRevision();
 
 // Table for custom menu entries
 // Supports dynamic variables that will be updated every time the version menu opens
@@ -49,9 +52,8 @@ customVersionEntry entries[] = {
     {"ROM", romverValue, NULL},                               //
     {"Emotion Engine", eeRevision, NULL},                     //
     {"Graphics Synthesizer", NULL, getGSRevision},            //
-    {"MechaCon", mechaconRev, NULL},                          //
+    {"MechaCon", NULL, getMechaConRevision},                  //
 };
-
 
 // This function will be called every time the version menu opens
 void versionInfoInitHandler() {
@@ -153,12 +155,22 @@ void patchVersionInfo(uint8_t *osd) {
   _sw(tmp, (uint32_t)ptr); // jal versionInfoInitHandler
 
   // Find sceGsGetGParam address
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternSCEGetGParam, (uint8_t *)patternSCEGetGParam_mask, sizeof(patternSCEGetGParam));
+  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternGsGetGParam, (uint8_t *)patternGsGetGParam_mask, sizeof(patternGsGetGParam));
   if (ptr) {
     tmp = _lw((uint32_t)ptr);
     tmp &= 0x03ffffff;
     tmp <<= 2;
     sceGsGetGParam = (void *)tmp;
+  }
+
+  // Find sceCdApplySCmd address
+  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternCdApplySCmd, (uint8_t *)patternCdApplySCmd_mask, sizeof(patternCdApplySCmd));
+  if (ptr) {
+    uint32_t fnptr = (uint32_t)ptr;
+    while ((_lw(fnptr) & 0xffff0000) != 0x27bd0000)
+      fnptr -= 4;
+
+    sceCdApplySCmd = (void *)fnptr;
   }
 
   // Initialize static values
@@ -169,12 +181,6 @@ void patchVersionInfo(uint8_t *osd) {
     romverValue[0] = '-';  // Put placeholer value
     romverValue[1] = '\0'; // Put placeholer value
   }
-
-  // MechaCon revision
-  if (settings.mechaconRev[0] != '\0')
-    strcpy(mechaconRev, settings.mechaconRev);
-  else
-    mechaconRev[0] = '-';
 
   // EE Revision
   formatRevision(eeRevision, GetCop0(15));
@@ -210,4 +216,41 @@ char *getGSRevision() {
   gsRevision[0] = '-';
   gsRevision[1] = '\0';
   return gsRevision;
+}
+
+char *getMechaConRevision() {
+  if (!sceCdApplySCmd || mechaconRev[0] == '\0')
+    return NULL;
+
+  if (mechaconRev[0] != '0')
+    // Retrieve the revision only once
+    return mechaconRev;
+
+  unsigned int isDebug = 0;
+  // sceCdApplySCmd response is always 16 bytes and will corrupt memory with a smaller buffer
+  // byte 0 - status byte, byte 1 - major, byte 2 - minor
+  uint8_t outBuffer[16] = {0};
+
+  if (sceCdApplySCmd(0x03, outBuffer, 1, outBuffer)) {
+    mechaconRev[0] = outBuffer[1] + '0';
+
+    if (outBuffer[1] > 4) {
+      // If major version is >=5, clear the last bit (DTL flag on Dragon consoles)
+      isDebug = (outBuffer[2] & 0x1) ? 1 : 0;
+      outBuffer[2] &= 0xFE;
+    }
+
+    mechaconRev[3] = '0' + (outBuffer[2] % 10);
+    if (outBuffer[2] > 10)
+      mechaconRev[2] = '0' + (outBuffer[2] / 10);
+
+    if (!isDebug)
+      mechaconRev[4] = '\0';
+
+    return mechaconRev;
+  }
+
+  // Failed to get the revision
+  mechaconRev[0] = '\0';
+  return NULL;
 }
