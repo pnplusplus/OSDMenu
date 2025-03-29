@@ -18,10 +18,12 @@ DISABLE_EXTRA_TIMERS_FUNCTIONS();
 PS2_DISABLE_AUTOSTART_PTHREAD();
 
 // Tries to open launcher ELF on both memory cards
-int testLauncher() {
+int probeLauncher() {
   if (settings.launcherPath[2] == '?') {
     if (settings.mcSlot == 1)
       settings.launcherPath[2] = '1';
+    else
+      settings.launcherPath[2] = '0';
   }
 
   int fd = fioOpen(settings.launcherPath, FIO_O_RDONLY);
@@ -59,7 +61,7 @@ int main(int argc, char *argv[]) {
   loadConfig();
 
   // Make sure launcher is accessible
-  if (testLauncher())
+  if (probeLauncher())
     Exit(-1);
 
 #ifdef ENABLE_SPLASH
