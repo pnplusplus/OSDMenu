@@ -235,10 +235,16 @@ int loadConfig(void) {
       continue;
     }
     if (!strcmp(name, "path_LAUNCHER_ELF")) {
+      if (strlen(value) < 4 || strncmp(value, "mc", 2))
+        continue; // Accept only memory card paths
+
       settings.launcherPath = value;
       continue;
     }
     if (!strcmp(name, "path_DKWDRV_ELF")) {
+      if (strlen(value) < 4 || strncmp(value, "mc", 2))
+        continue; // Accept only memory card paths
+
       settings.dkwdrvPath = value;
       continue;
     }
@@ -306,7 +312,7 @@ void initConfig(void) {
   }
   settings.menuItemCount = 0;
   settings.launcherPath = launcherPath;
-  settings.dkwdrvPath = NULL;
+  settings.dkwdrvPath = NULL; // Can be null
   settings.skipPS2LOGO = 1;
   settings.disableGameID = 0;
   settings.useDKWDRV = 0;

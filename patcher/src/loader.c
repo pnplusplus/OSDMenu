@@ -33,7 +33,7 @@ void launchItem(char *item) {
   int argc;
   if (strcmp(item, "cdrom")) {
     argv = malloc(2 * sizeof(char *));
-    argv[0] = settings.launcherPath;
+    argv[0] = strdup(settings.launcherPath);
     argv[1] = strdup(item);
     argc = 2;
   } else {
