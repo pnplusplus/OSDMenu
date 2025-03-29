@@ -26,7 +26,7 @@ Due to memory limitations and the need to support more devices, the original FMC
 ## Patcher
 
 This is a slimmed-down and refactored version of OSDSYS patches from FMCB 1.8 for modern PS2SDK.  
-It reads settings from `mc?:/BOOT/FREEMCB.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
+It reads settings from `mc?:/SYS-CONF/FREEMCB.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
 - Custom OSDSYS menu entries
 - Infinite scrolling
 - Custom button prompts and menu header
@@ -101,20 +101,19 @@ Most of `FREEMCB.CNF` settings are directly compatible with those from FMCB 1.8.
 17. `OSDSYS_Skip_Disc` — enables/disables automatic CD/DVD launch
 18. `OSDSYS_Skip_Logo` — enables/disables SCE logo
 19. `OSDSYS_Inner_Browser` — enables/disables going to the Browser after launching OSDSYS
-20. `OSDSYS_Skip_HDD` — enables/disables HDD update check
-21. `OSDSYS_selected_color` — color of selected menu entry
-22. `OSDSYS_unselected_color` — color of unselected menu entry
-23. `name_OSDSYS_ITEM_???` — menu entry name
-24. `path?_OSDSYS_ITEM_???` — path to ELF. Also supports the following special paths: `cdrom`, `OSDSYS`, `POWEROFF`
+20. `OSDSYS_selected_color` — color of selected menu entry
+21. `OSDSYS_unselected_color` — color of unselected menu entry
+22. `name_OSDSYS_ITEM_???` — menu entry name
+23. `path?_OSDSYS_ITEM_???` — path to ELF. Also supports the following special paths: `cdrom`, `OSDSYS`, `POWEROFF`
 
 New to this launcher:
 
-25. `arg_OSDSYS_ITEM_???` — custom argument to be passed to the ELF. Each argument needs a separate entry.
-26. `cdrom_skip_ps2logo` — enables or disables running discs via `rom0:PS2LOGO`. Useful for MechaPwn-patched consoles.
-27. `cdrom_disable_gameid` — disables or enables visual Game ID
-28. `cdrom_use_dkwdrv` — enables or disables launching DKWDRV for PS1 discs
-29. `path_LAUNCHER_ELF` — custom path to launcher.elf. The path MUST be on the memory card
-30. `path_DKWDRV_ELF` — custom path to DKWDRV.ELF. The path MUST be on the memory card
+24. `arg_OSDSYS_ITEM_???` — custom argument to be passed to the ELF. Each argument needs a separate entry.
+25. `cdrom_skip_ps2logo` — enables or disables running discs via `rom0:PS2LOGO`. Useful for MechaPwn-patched consoles.
+26. `cdrom_disable_gameid` — disables or enables visual Game ID
+27. `cdrom_use_dkwdrv` — enables or disables launching DKWDRV for PS1 discs
+28. `path_LAUNCHER_ELF` — custom path to launcher.elf. The path MUST be on the memory card
+29. `path_DKWDRV_ELF` — custom path to DKWDRV.ELF. The path MUST be on the memory card
 
 ## Credits
 

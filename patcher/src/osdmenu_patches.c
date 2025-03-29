@@ -226,27 +226,23 @@ char *getMechaConRevision() {
     // Retrieve the revision only once
     return mechaconRev;
 
-  unsigned int isDebug = 0;
   // sceCdApplySCmd response is always 16 bytes and will corrupt memory with a smaller buffer
   // byte 0 - status byte, byte 1 - major, byte 2 - minor
   uint8_t outBuffer[16] = {0};
 
   if (sceCdApplySCmd(0x03, outBuffer, 1, outBuffer)) {
-    mechaconRev[0] = outBuffer[1] + '0';
 
     if (outBuffer[1] > 4) {
       // If major version is >=5, clear the last bit (DTL flag on Dragon consoles)
-      isDebug = (outBuffer[2] & 0x1) ? 1 : 0;
+      if (!(outBuffer[2] & 0x1))
+        mechaconRev[4] = '\0';
+
       outBuffer[2] &= 0xFE;
     }
 
+    mechaconRev[0] = outBuffer[1] + '0';
+    mechaconRev[2] = '0' + (outBuffer[2] / 10);
     mechaconRev[3] = '0' + (outBuffer[2] % 10);
-    if (outBuffer[2] > 10)
-      mechaconRev[2] = '0' + (outBuffer[2] / 10);
-
-    if (!isDebug)
-      mechaconRev[4] = '\0';
-
     return mechaconRev;
   }
 

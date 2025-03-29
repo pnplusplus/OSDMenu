@@ -200,10 +200,6 @@ int loadConfig(void) {
       settings.goToInnerBrowser = atoi(value);
       continue;
     }
-    if (!strcmp(name, "OSDSYS_Skip_HDD")) {
-      settings.skipHDD = atoi(value);
-      continue;
-    }
     if (!strcmp(name, "OSDSYS_selected_color")) {
       for (i = 0; i < 4; i++) {
         for (j = 0; j < 4; j++) {
@@ -279,7 +275,6 @@ void initVariables() {
 void initConfig(void) {
   settings.mcSlot = 0;
   settings.hackedOSDSYS = 0;
-  settings.skipHDD = 0;
   settings.skipDisc = 0;
   settings.skipLogo = 1;
   settings.goToInnerBrowser = 0;

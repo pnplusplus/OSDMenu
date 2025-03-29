@@ -662,12 +662,10 @@ void patchExecuteOSDSYS(void *epc, void *gp) {
   if (findString("SkipMc", (char *)epc, 0x100000)) // Pass SkipMc argument
     args[n++] = "SkipMc";                          // Skip mc?:/BREXEC-SYSTEM/osdxxx.elf update on v5 and above
 
-  if (settings.skipHDD) {
-    if (findString("SkipHdd", (char *)epc, 0x100000)) // Pass SkipHdd argument if the ROM supports it
-      args[n++] = "SkipHdd";                          // Skip HDDLOAD on v5 and above
-    else
-      patchSkipHDD((uint8_t *)epc); // Skip HDD patch for earlier ROMs
-  }
+  if (findString("SkipHdd", (char *)epc, 0x100000)) // Pass SkipHdd argument if the ROM supports it
+    args[n++] = "SkipHdd";                          // Skip HDDLOAD on v5 and above
+  else
+    patchSkipHDD((uint8_t *)epc); // Skip HDD patch for earlier ROMs
 
   // Apply disc launch patch to forward disc launch to the launcher
   patchDiscLaunch((uint8_t *)epc);

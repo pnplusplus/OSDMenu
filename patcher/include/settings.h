@@ -9,7 +9,6 @@
 typedef struct {
   uint8_t mcSlot;           // Memory card slot contaning currently loaded FREEMCB.CNF
   uint8_t hackedOSDSYS;     // Enable/Disable OSDSYS hacking
-  uint8_t skipHDD;          // Enable/Disable HDD Update check
   uint8_t skipDisc;         // Enable/Disable disc boot while inserting them while OSDSYS is loaded
   uint8_t skipLogo;         // Enable/Disable Sony Entertainment logo while loading OSDSYS
   uint8_t goToInnerBrowser; // Enable/Disable inner_browser while loading OSDSYS
