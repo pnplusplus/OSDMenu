@@ -16,7 +16,7 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath);
 
 // handler_fmcb.c
 //
-// Loads ELF specified in FREEMCB.CNF on the memory card
+// Loads ELF specified in OSDMENU.CNF on the memory card
 int handleFMCB(int argc, char *argv[]);
 
 // handler_mc.c

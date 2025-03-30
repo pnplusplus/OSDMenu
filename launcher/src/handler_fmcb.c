@@ -55,7 +55,7 @@ void freeLinkedStr(linkedStr *lstr) {
   free(lstr);
 }
 
-// Loads ELF specified in FREEMCB.CNF on the memory card
+// Loads ELF specified in OSDMENU.CNF on the memory card
 int handleFMCB(int argc, char *argv[]) {
   int res = initModules(Device_MemoryCard);
   if (res)

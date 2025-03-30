@@ -7,7 +7,7 @@
 
 // Patcher settings struct, contains all configurable patch settings and menu items
 typedef struct {
-  uint8_t mcSlot;           // Memory card slot contaning currently loaded FREEMCB.CNF
+  uint8_t mcSlot;           // Memory card slot contaning currently loaded OSDMENU.CNF
   uint8_t hackedOSDSYS;     // Enable/Disable OSDSYS hacking
   uint8_t skipDisc;         // Enable/Disable disc boot while inserting them while OSDSYS is loaded
   uint8_t skipLogo;         // Enable/Disable Sony Entertainment logo while loading OSDSYS

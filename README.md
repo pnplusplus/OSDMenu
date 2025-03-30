@@ -9,12 +9,12 @@ Will not work on "protokernel" systems (SCPH-10000, SCPH-15000) and possibly SCP
 
 1. Copy `patcher.elf` and `launcher.elf` to `mc?:/BOOT/`  
    Copy DKWDRV to `mc?:/BOOT/DKWDRV.ELF` _(optional)_ 
-2. Edit `mc?:/SYS-CONF/FREEMCB.CNF` [as you see fit](#fmcb-handler)
+2. Edit `mc?:/SYS-CONF/OSDMENU.CNF` [as you see fit](#fmcb-handler)
 3. Configure PS2BBL to launch `mc?:/BOOT/patcher.elf` or launch it manually from LaunchELF
 
 ## Key differences from FMCB 1.8:
 - All initialization code is removed in favor of using a separate bootloader to start the patcher (e.g. [PS2BBL](https://github.com/israpps/PlayStation2-Basic-BootLoader))
-- USB support is dropped from the patcher, so only memory cards are checked for `FREEMCB.CNF`
+- USB support is dropped from the patcher, so only memory cards are checked for `OSDMENU.CNF`
 - No ESR support
 - No support for launching ELFs by holding a gamepad button
 - ELF paths are not checked by the patcher, so every named entry from FMCB config file is displayed in hacked OSDSYS menu
@@ -26,7 +26,7 @@ Due to memory limitations and the need to support more devices, the original FMC
 ## Patcher
 
 This is a slimmed-down and refactored version of OSDSYS patches from FMCB 1.8 for modern PS2SDK.  
-It reads settings from `mc?:/SYS-CONF/FREEMCB.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
+It reads settings from `mc?:/SYS-CONF/OSDMENU.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
 - Custom OSDSYS menu entries
 - Infinite scrolling
 - Custom button prompts and menu header
@@ -35,7 +35,7 @@ It reads settings from `mc?:/SYS-CONF/FREEMCB.CNF` and patches the `rom0:OSDSYS`
 - HDD update check bypass
 - Override PS1 and PS2 disc launch functions with custom code that starts the launcher
 
-See the list for supported `FREEMCB.CNF` options [here](#freemcbcnf).  
+See the list for supported `OSDMENU.CNF` options [here](#freemcbcnf).  
 For every menu item and disc launch, it starts the launcher from `mc?:/BOOT/launcher.elf` and passes the menu index to it.
 
 ## Launcher
@@ -72,15 +72,15 @@ For PS1 CDs with generic executable name (e.g. `PSX.EXE`), attempts to guess the
 stored in the Primary Volume Descriptor, based on the table from [TonyHax International](https://github.com/alex-free/tonyhax/blob/master/loader/gameid-psx-exe.c).
 
 ### `fmcb` handler
-When the launcher receives `fmcb0:<idx>` or `fmcb1:<idx>` path, it reads `FREEMCB.CNF` from the respective memory card,
+When the launcher receives `fmcb0:<idx>` or `fmcb1:<idx>` path, it reads `OSDMENU.CNF` from the respective memory card,
 searches for `path?_OSDSYS_ITEM_<idx>` and `arg_OSDSYS_ITEM_<idx>` entries and attempts to launch the ELF.
 
 Respects `cdrom_skip_ps2logo`, `cdrom_disable_gameid` and `cdrom_use_dkwdrv` for `cdrom` paths.
 
 
-## FREEMCB.CNF
+## OSDMENU.CNF
 
-Most of `FREEMCB.CNF` settings are directly compatible with those from FMCB 1.8.
+Most of `OSDMENU.CNF` settings are directly compatible with those from FMCB 1.8 `FREEMCB.CNF`.
 
 1. `OSDSYS_video_mode` — force OSDSYS mode. Valid values are `AUTO`, `PAL` or `NTSC`
 2. `hacked_OSDSYS` — enables or disables OSDSYS patches
