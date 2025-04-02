@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <kernel.h>
 
-
 //
 // GameID code based on https://github.com/CosmicScale/Retro-GEM-PS2-Disc-Launcher
 //
@@ -29,10 +28,8 @@ void gsDisplayGameID(const char *gameID) {
 
   // Initialize the DMAC
   int res;
-  if ((res = dmaKit_chan_init(DMA_CHANNEL_GIF))) {
-    printf("ERROR: Failed to initlize DMAC: %d\n", res);
+  if ((res = dmaKit_chan_init(DMA_CHANNEL_GIF)))
     return;
-  }
 
   // Init screen
   gsKit_init_screen(gsGlobal);

@@ -20,31 +20,81 @@
   extern unsigned char mod##_irx[] __attribute__((aligned(16)));                                                                                     \
   extern uint32_t size_##mod##_irx
 
-// Defines moduleList entry for embedded module
-#define INT_MODULE(mod, argFunc, deviceType) {#mod, mod##_irx, &size_##mod##_irx, 0, NULL, deviceType, argFunc}
+// Defines moduleList entry for embedded and external modules
+#define INT_MODULE(mod, argFunc, deviceType) {#mod, NULL, mod##_irx, &size_##mod##_irx, 0, NULL, deviceType, argFunc}
+#define EXT_MODULE(mod, path, argFunc, deviceType) {#mod, path, NULL, NULL, 0, NULL, deviceType, argFunc}
 
 // Embedded IOP modules
 IRX_DEFINE(iomanX);
 IRX_DEFINE(fileXio);
-IRX_DEFINE(poweroff);
-IRX_DEFINE(xparam);
-IRX_DEFINE(sio2man);
+
+#ifndef USE_ROM_MODULES
 IRX_DEFINE(mcman);
 IRX_DEFINE(mcserv);
+#endif
+
+#ifdef MMCE
+#define SIO2MAN
 IRX_DEFINE(mmceman);
-IRX_DEFINE(ps2dev9);
-IRX_DEFINE(bdm);
-IRX_DEFINE(bdmfs_fatfs);
+#endif
+
+#ifdef ATA
+#define DEV9
+#define BDM
 IRX_DEFINE(ata_bd);
+#endif
+
+#ifdef USB
+#define BDM
 IRX_DEFINE(usbd_mini);
 IRX_DEFINE(usbmass_bd_mini);
+#endif
+
+#ifdef MX4SIO
+#define SIO2MAN
+#define BDM
 IRX_DEFINE(mx4sio_bd_mini);
+#endif
+
+#ifdef ILINK
+#define BDM
 IRX_DEFINE(iLinkman);
 IRX_DEFINE(IEEE1394_bd_mini);
+#endif
+
+#ifdef UDPBD
+#define DEV9
+#define BDM
 IRX_DEFINE(smap_udpbd);
+#endif
+
+#ifdef APA
+#define DEV9
 IRX_DEFINE(ps2atad);
 IRX_DEFINE(ps2hdd);
 IRX_DEFINE(ps2fs);
+#endif
+
+#ifdef CDROM
+IRX_DEFINE(xparam);
+#endif
+
+#ifdef SIO2MAN
+IRX_DEFINE(sio2man);
+#endif
+
+#ifdef DEV9
+IRX_DEFINE(ps2dev9);
+#endif
+
+#ifdef BDM
+IRX_DEFINE(bdm);
+IRX_DEFINE(bdmfs_fatfs);
+#endif
+
+#ifdef FMCB
+IRX_DEFINE(poweroff);
+#endif
 
 // Function used to initialize module arguments.
 // Must set argLength and return non-null pointer to a argument string if successful.
@@ -53,6 +103,7 @@ typedef char *(*moduleArgFunc)(uint32_t *argLength);
 
 typedef struct ModuleListEntry {
   char *name;                     // Module name
+  char *path;                     // Module path for external modules
   unsigned char *irx;             // Pointer to IRX module
   uint32_t *size;                 // IRX size. Uses pointer to avoid compilation issues with internal modules
   uint32_t argLength;             // Total length of argument string
@@ -70,72 +121,66 @@ char *initPS2FSArguments(uint32_t *argLength);
 static ModuleListEntry moduleList[] = {
     INT_MODULE(iomanX, NULL, Device_Basic),
     INT_MODULE(fileXio, NULL, Device_Basic),
+#ifdef SIO2MAN
     INT_MODULE(sio2man, NULL, Device_MemoryCard | Device_MMCE | Device_UDPBD | Device_CDROM),
+#else
+    EXT_MODULE(sio2man, "rom0:SIO2MAN", NULL, Device_MemoryCard | Device_UDPBD | Device_CDROM),
+#endif
+#ifndef USE_ROM_MODULES
     INT_MODULE(mcman, NULL, Device_MemoryCard | Device_UDPBD | Device_CDROM),
     INT_MODULE(mcserv, NULL, Device_MemoryCard | Device_UDPBD | Device_CDROM),
+#else
+    EXT_MODULE(mcman, "rom0:MCMAN", NULL, Device_MemoryCard | Device_UDPBD | Device_CDROM),
+    EXT_MODULE(mcserv, "rom0:MCSERV", NULL, Device_MemoryCard | Device_UDPBD | Device_CDROM),
+#endif
+#ifdef MMCE
     INT_MODULE(mmceman, NULL, Device_MMCE),
-    // DEV9
+#endif
+#ifdef DEV9
     INT_MODULE(ps2dev9, NULL, Device_ATA | Device_UDPBD | Device_PFS),
-    // BDM with exFAT driver
+#endif
+#ifdef BDM
     INT_MODULE(bdm, NULL, Device_BDM),
     INT_MODULE(bdmfs_fatfs, NULL, Device_BDM),
-    // ATA
+#endif
+#ifdef ATA
     INT_MODULE(ata_bd, NULL, Device_ATA),
-    // USB
+#endif
+#ifdef USB
     INT_MODULE(usbd_mini, NULL, Device_USB),
     INT_MODULE(usbmass_bd_mini, NULL, Device_USB),
-    // MX4SIO
+#endif
+#ifdef MX4SIO
     INT_MODULE(mx4sio_bd_mini, NULL, Device_MX4SIO),
-    // iLink
+#endif
+#ifdef ILINK
     INT_MODULE(iLinkman, NULL, Device_iLink),
     INT_MODULE(IEEE1394_bd_mini, NULL, Device_iLink),
-    // UDPBD
+#endif
+#ifdef UDPBD
     INT_MODULE(smap_udpbd, &initSMAPArguments, Device_UDPBD),
-    // PFS
+#endif
+#ifdef APA
     INT_MODULE(ps2atad, NULL, Device_PFS),
     INT_MODULE(ps2hdd, &initPS2HDDArguments, Device_PFS),
     INT_MODULE(ps2fs, &initPS2FSArguments, Device_PFS),
+#endif
 };
 #define MODULE_COUNT sizeof(moduleList) / sizeof(ModuleListEntry)
 
-// Loads module, executing argument function if it's present
-int loadModule(ModuleListEntry *mod);
-
-// Reboots the console
-void rebootPS2() {
-  sceSifInitRpc(0);
-  while (!SifIopReset("", 0)) {
-  };
-  while (!SifIopSync()) {
-  };
-  sceSifExitRpc();
-  SifLoadFileInit();
-  LoadExecPS2("rom0:OSDSYS", 0, NULL);
-}
-
-// Shuts down the console.
-// Needs initModules(Device_Basic) to be called first
-void shutdownPS2() {
-  sceSifInitRpc(0);
-  SifExecModuleBuffer(poweroff_irx, size_poweroff_irx, 0, NULL, NULL);
-  poweroffShutdown();
-}
-
-// Sets IOP emulation flags for Deckard consoles
-// Needs initModules(Device_Basic) to be called first
-void applyXPARAM(char *gameID) {
-  sceSifInitRpc(0);
-  SifExecModuleBuffer(xparam_irx, size_xparam_irx, strlen(gameID)+1, gameID, NULL);
-  sceSifExitRpc();
-}
+static DeviceType currentDevice = Device_None;
 
 // Initializes IOP modules for given device type
 int initModules(DeviceType device) {
-  int ret = 0;
+  if (currentDevice == device)
+    // Do nothing if the drivers are already loaded
+    return 0;
 
-  // Initialize the RPC manager
+  int ret = 0;
+  int iopret = 0;
+
+  // Initialize the RPC manager and reboot the IOP
   sceSifInitRpc(0);
-  printf("Rebooting IOP\n");
   while (!SifIopReset("", 0)) {
   };
   while (!SifIopSync()) {
@@ -152,10 +197,31 @@ int initModules(DeviceType device) {
 
   // Load modules
   for (int i = 0; i < MODULE_COUNT; i++) {
+    ret = 0;
+    iopret = 0;
     if (!(device & moduleList[i].type) && (moduleList[i].type != Device_Basic))
       continue;
 
-    if ((ret = loadModule(&moduleList[i]))) {
+    // If module has an arugment function, execute it
+    if (moduleList[i].argumentFunction != NULL) {
+      moduleList[i].argStr = moduleList[i].argumentFunction(&moduleList[i].argLength);
+      if (moduleList[i].argStr == NULL) {
+        msg("ERROR: Failed to initialize arguments for module %s\n", moduleList[i].name);
+        return -ENOENT;
+      }
+    }
+
+    if (moduleList[i].path)
+      ret = SifLoadModule(moduleList[i].path, moduleList[i].argLength, moduleList[i].argStr);
+    else
+      ret = SifExecModuleBuffer(moduleList[i].irx, *moduleList[i].size, moduleList[i].argLength, moduleList[i].argStr, &iopret);
+
+    if (ret >= 0)
+      ret = 0;
+    if (iopret == 1)
+      ret = iopret;
+
+    if (ret) {
       msg("ERROR: Failed to initialize module %s: %d\n", moduleList[i].name, ret);
       return ret;
     }
@@ -164,34 +230,46 @@ int initModules(DeviceType device) {
     if (moduleList[i].argStr != NULL)
       free(moduleList[i].argStr);
   }
+
+  currentDevice = device;
   return 0;
 }
 
-// Loads module, executing argument function if it's present
-int loadModule(ModuleListEntry *mod) {
-  int ret, iopret = 0;
-
-  printf("Loading %s\n", mod->name);
-
-  // If module has an arugment function, execute it
-  if (mod->argumentFunction != NULL) {
-    mod->argStr = mod->argumentFunction(&mod->argLength);
-    if (mod->argStr == NULL) {
-      return -1;
-    }
-  }
-
-  ret = SifExecModuleBuffer(mod->irx, *mod->size, mod->argLength, mod->argStr, &iopret);
-  if (ret >= 0)
-    ret = 0;
-  if (iopret == 1)
-    ret = iopret;
-
-  return ret;
+// Reboots the console
+void rebootPS2() {
+  sceSifInitRpc(0);
+  while (!SifIopReset("", 0)) {
+  };
+  while (!SifIopSync()) {
+  };
+  sceSifExitRpc();
+  SifLoadFileInit();
+  LoadExecPS2("rom0:OSDSYS", 0, NULL);
 }
+
+#ifdef FMCB
+// Shuts down the console.
+// Needs initModules(Device_Basic) to be called first
+void shutdownPS2() {
+  sceSifInitRpc(0);
+  SifExecModuleBuffer(poweroff_irx, size_poweroff_irx, 0, NULL, NULL);
+  poweroffShutdown();
+}
+#endif
+
+#ifdef CDROM
+// Sets IOP emulation flags for Deckard consoles
+// Needs initModules(Device_Basic) to be called first
+void applyXPARAM(char *gameID) {
+  sceSifInitRpc(0);
+  SifExecModuleBuffer(xparam_irx, size_xparam_irx, strlen(gameID) + 1, gameID, NULL);
+  sceSifExitRpc();
+}
+#endif
 
 // Argument functions
 
+#ifdef UDPBD
 // Builds IP address argument for SMAP module
 // using mc?:SYS-CONF/IPCONFIG.DAT from memory card
 char *initSMAPArguments(uint32_t *argLength) {
@@ -230,7 +308,9 @@ char *initSMAPArguments(uint32_t *argLength) {
   snprintf(argStr, sizeof(ipArg), "ip=%s", ipAddr);
   return argStr;
 }
+#endif
 
+#ifdef APA
 // up to 4 descriptors, 20 buffers
 static char ps2hddArguments[] = "-o"
                                 "\0"
@@ -264,3 +344,4 @@ char *initPS2FSArguments(uint32_t *argLength) {
   memcpy(argStr, ps2fsArguments, sizeof(ps2fsArguments));
   return argStr;
 }
+#endif

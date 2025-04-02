@@ -26,6 +26,11 @@ typedef enum {
   NTSC_640_448_32
 } GSVideoMode;
 
+// A simple linked list for paths and arguments
+typedef struct linkedStr {
+  char *str;
+  struct linkedStr *next;
+} linkedStr;
 
 // Prints a message to the screen and console
 void msg(const char *str, ...);
@@ -39,9 +44,16 @@ int tryFile(char *filepath);
 // Attempts to launch ELF from device and path in argv[0]
 int launchPath(int argc, char *argv[]);
 
-// getCNFString is the main CNF parser called for each CNF variable in a CNF file.
-// Input and output data is handled via its pointer parameters.
-// The return value flags 'false' when no variable is found. (normal at EOF)
-int getCNFString(char **cnfPos, char **name, char **value);
+// Adds a new string to linkedStr and returns
+linkedStr *addStr(linkedStr *lstr, char *str);
+
+// Frees all elements of linkedStr
+void freeLinkedStr(linkedStr *lstr);
+
+#ifdef ENABLE_PRINTF
+    #define DPRINTF(x...) printf(x)
+#else
+    #define DPRINTF(x...)
+#endif
 
 #endif

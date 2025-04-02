@@ -13,48 +13,6 @@
 // Defined in common/defaults.h
 char cnfPath[] = CONF_PATH;
 
-typedef struct linkedStr {
-  char *str;
-  struct linkedStr *next;
-} linkedStr;
-
-// Adds a new string to linkedStr and returns
-linkedStr *addStr(linkedStr *lstr, char *str) {
-  linkedStr *newLstr = malloc(sizeof(linkedStr));
-  newLstr->str = strdup(str);
-  newLstr->next = NULL;
-
-  if (lstr) {
-    linkedStr *tLstr = lstr;
-    // If lstr is not null, go to the last element and
-    // link the new element
-    while (tLstr->next)
-      tLstr = tLstr->next;
-
-    tLstr->next = newLstr;
-    return lstr;
-  }
-
-  // Else, return the new element as the first one
-  return newLstr;
-}
-
-// Frees all elements of linkedStr
-void freeLinkedStr(linkedStr *lstr) {
-  if (!lstr)
-    return;
-
-  linkedStr *tPtr = lstr;
-  while (lstr->next) {
-    free(lstr->str);
-    tPtr = lstr->next;
-    free(lstr);
-    lstr = tPtr;
-  }
-  free(lstr->str);
-  free(lstr);
-}
-
 // Loads ELF specified in OSDMENU.CNF on the memory card
 int handleFMCB(int argc, char *argv[]) {
   int res = initModules(Device_MemoryCard);
@@ -78,7 +36,6 @@ int handleFMCB(int argc, char *argv[]) {
     return -EINVAL;
   }
   int targetIdx = atoi(++idx);
-  printf("Searching for FMCB entry %d\n", targetIdx);
 
   // Open the config file
   FILE *file = fopen(cnfPath, "r");
@@ -223,7 +180,7 @@ int handleFMCB(int argc, char *argv[]) {
   while (tlstr) {
     targetArgv[0] = tlstr->str;
     // If target path is valid, it'll never return from launchPath
-    printf("Trying to launch %s\n", targetArgv[0]);
+    DPRINTF("Trying to launch %s\n", targetArgv[0]);
     launchPath(targetArgc, targetArgv);
     free(tlstr->str);
     tlstr = tlstr->next;

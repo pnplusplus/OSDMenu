@@ -85,7 +85,7 @@ int createSystemDataDir() {
 int updateHistoryFile(const char *titleID) {
   // Refuse to write entry if title ID is less than expected
   if ((titleID == NULL) || (strlen(titleID) < 11)) {
-    printf("WARN: Will not write invalid title ID to history files\n");
+    DPRINTF("WARN: Will not write invalid title ID to history files\n");
     return 0;
   }
   // Detect system directory
@@ -94,12 +94,12 @@ int updateHistoryFile(const char *titleID) {
 
   // Initialize libcdvd to get timestamp
   if (!sceCdInit(SCECdINoD)) {
-    printf("ERROR: Failed to init libcdvd\n");
+    DPRINTF("ERROR: Failed to init libcdvd\n");
     return -ENODEV;
   }
 
   if (mcInit(MC_TYPE_XMC)) {
-    printf("ERROR: Failed to initialize libmc\n");
+    DPRINTF("ERROR: Failed to initialize libmc\n");
     sceCdInit(SCECdEXIT);
     return -ENODEV;
   }
@@ -113,7 +113,7 @@ int updateHistoryFile(const char *titleID) {
     mcGetInfo(i, 0, &mcType, NULL, &format);
     mcSync(0, NULL, &histfileFd);
     if ((mcType != sceMcTypePS2) || (format != MC_FORMATTED)) {
-      printf("WARN: Refusing to write to memory card at mc%d\n", i);
+      DPRINTF("WARN: Refusing to write to memory card at mc%d\n", i);
       continue;
     }
 
@@ -122,18 +122,18 @@ int updateHistoryFile(const char *titleID) {
     histfileFd = open(historyFilePath, O_RDONLY);
     if (histfileFd < 0) {
       // File doesn't exist
-      printf("History file at %s does not exist, creating system directory\n", historyFilePath);
+      DPRINTF("History file at %s does not exist, creating system directory\n", historyFilePath);
       if (createSystemDataDir()) {
-        printf("WARN: Failed to create system directory\n");
+        DPRINTF("WARN: Failed to create system directory\n");
         continue;
       }
       memset(historyList, 0, HISTORY_FILE_SIZE);
     } else {
       // Read history file
-      printf("Updating history file at %s\n", historyFilePath);
+      DPRINTF("Updating history file at %s\n", historyFilePath);
       count = read(histfileFd, historyList, HISTORY_FILE_SIZE);
       if (count != (HISTORY_FILE_SIZE)) {
-        printf("Failed to load the history file, reinitializing\n");
+        DPRINTF("Failed to load the history file, reinitializing\n");
         memset(historyList, 0, HISTORY_FILE_SIZE);
       }
       close(histfileFd);
@@ -145,13 +145,13 @@ int updateHistoryFile(const char *titleID) {
     // Write history file
     histfileFd = open(historyFilePath, O_WRONLY | O_CREAT | O_TRUNC);
     if (histfileFd < 0) {
-      printf("ERROR: Failed to open history file for writing: %d\n", histfileFd);
+      DPRINTF("ERROR: Failed to open history file for writing: %d\n", histfileFd);
       continue;
     }
     // Return error if not all bytes were written
     count = write(histfileFd, historyList, HISTORY_FILE_SIZE);
     if (count != HISTORY_FILE_SIZE) {
-      printf("ERROR: Failed to write: %d/%d bytes written\n", count, HISTORY_FILE_SIZE);
+      DPRINTF("ERROR: Failed to write: %d/%d bytes written\n", count, HISTORY_FILE_SIZE);
     }
     close(histfileFd);
   }
@@ -226,7 +226,7 @@ void processHistoryList(const char *titleID, struct historyListEntry *historyLis
 
     // Check if this entry belongs to the target title
     if (!strncmp(historyList[i].titleID, titleID, sizeof(historyList[i].titleID))) {
-      printf("Updating entry at slot %d\n", i);
+      DPRINTF("Updating entry at slot %d\n", i);
       // Update timestamp
       historyList[i].timestamp = getTimestamp();
 
@@ -271,10 +271,10 @@ void processHistoryList(const char *titleID, struct historyListEntry *historyLis
     memcpy(&evictedhistoryEntry, newEntry, sizeof(evictedhistoryEntry));
     i = evictEntry(&evictedhistoryEntry);
     if (i < 0) // Will reuse i here for result
-      printf("ERROR: Failed to append to history.old: %d\n", i);
+      DPRINTF("ERROR: Failed to append to history.old: %d\n", i);
   }
 
-  printf("Inserting entry to slot %d\n", slot);
+  DPRINTF("Inserting entry to slot %d\n", slot);
   // Initialize the new entry
   strncpy(newEntry->titleID, titleID, sizeof(newEntry->titleID) - 1);
   newEntry->launchCount = 1;
@@ -285,7 +285,7 @@ void processHistoryList(const char *titleID, struct historyListEntry *historyLis
 
 // Appends evicted history entry to history.old file
 int evictEntry(const struct historyListEntry *evictedhistoryEntry) {
-  printf("Evicting %s into history.old\n", evictedhistoryEntry->titleID);
+  DPRINTF("Evicting %s into history.old\n", evictedhistoryEntry->titleID);
   char fullpath[64];
   int fd, result;
 

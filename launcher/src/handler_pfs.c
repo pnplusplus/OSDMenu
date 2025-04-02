@@ -38,7 +38,7 @@ int handlePFS(int argc, char *argv[]) {
     return res;
 
   // Wait for IOP to initialize device driver
-  printf("Waiting for HDD to become available\n");
+  DPRINTF("Waiting for HDD to become available\n");
   for (int attempts = 0; attempts < DELAY_ATTEMPTS; attempts++) {
     res = open("hdd0:", O_DIRECTORY | O_RDONLY);
     if (res >= 0) {
@@ -55,7 +55,7 @@ int handlePFS(int argc, char *argv[]) {
   snprintf(pathbuffer, PATH_MAX - 1, "%s/%s", PFS_MOUNTPOINT, path);
 
   // Mount the partition
-  printf("Mounting %s to %s\n", argv[0], PFS_MOUNTPOINT);
+  DPRINTF("Mounting %s to %s\n", argv[0], PFS_MOUNTPOINT);
   if (fileXioMount(PFS_MOUNTPOINT, argv[0], FIO_MT_RDONLY))
     return -ENODEV;
 

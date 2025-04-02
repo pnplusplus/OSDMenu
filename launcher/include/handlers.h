@@ -31,5 +31,9 @@ int handleMMCE(int argc, char *argv[]);
 // Loads ELF from APA-formatted HDD
 int handlePFS(int argc, char *argv[]);
 
+// handler_quickboot.c
+//
+// Loads ELF from the .CNF file in CWD
+int handleQuickboot(char *cnfPath);
 
 #endif

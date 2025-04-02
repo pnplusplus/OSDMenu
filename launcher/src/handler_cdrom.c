@@ -84,16 +84,16 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
   }
 
   if (!sceCdInit(SCECdINIT)) {
-    printf("CDROM ERROR: Failed to initialize libcdvd\n");
+    msg("CDROM ERROR: Failed to initialize libcdvd\n");
     return -ENODEV;
   }
 
   if (dkwdrvPath)
-    printf("CDROM: Using DKWDRV for PS1 discs\n");
+    DPRINTF("CDROM: Using DKWDRV for PS1 discs\n");
   if (!displayGameID)
-    printf("CDROM: Disabling visual game ID\n");
+    DPRINTF("CDROM: Disabling visual game ID\n");
   if (skipPS2LOGO)
-    printf("CDROM: Skipping PS2LOGO\n");
+    DPRINTF("CDROM: Skipping PS2LOGO\n");
 
   // Wait until the drive is ready
   sceCdDiskReady(0);
@@ -144,7 +144,7 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
   switch (discType) {
   case DiscType_PS1:
     if (dkwdrvPath) {
-      printf("Starting DKWDRV\n");
+      DPRINTF("Starting DKWDRV\n");
       free(bootPath);
       free(titleID);
       free(titleVersion);
@@ -152,7 +152,7 @@ int startCDROM(int displayGameID, int skipPS2LOGO, char *dkwdrvPath) {
       LoadELFFromFile(1, argv);
     } else {
       char *argv[] = {titleID, titleVersion};
-      printf("Starting PS1DRV with title ID %s and version %s\n", argv[0], argv[1]);
+      DPRINTF("Starting PS1DRV with title ID %s and version %s\n", argv[0], argv[1]);
       sceSifExitCmd();
       LoadExecPS2("rom0:PS1DRV", 2, argv);
     }
@@ -191,7 +191,7 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
     // Try to guess the title ID from the disc PVD
     const char *tID = getPS1GenericTitleID();
     if (tID) {
-      printf("Guessed the title ID from disc PVD: %s\n", tID);
+      DPRINTF("Guessed the title ID from disc PVD: %s\n", tID);
       strncpy(titleID, tID, 11);
       return DiscType_PS1;
     }
@@ -263,7 +263,7 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
   if (!valuePtr) {
     valuePtr = strchr(bootPath, ':'); // PS1 CDs don't have \ in the path
     if (!valuePtr) {
-      printf("CDROM: Failed to parse the executable for the title ID\n");
+      DPRINTF("CDROM: Failed to parse the executable for the title ID\n");
       return type;
     }
   }
@@ -277,7 +277,7 @@ int parseDiscCNF(char *bootPath, char *titleID, char *titleVersion) {
     // Try to guess the title ID from the disc PVD
     const char *tID = getPS1GenericTitleID();
     if (tID) {
-      printf("Guessed the title ID from disc PVD: %s\n", tID);
+      DPRINTF("Guessed the title ID from disc PVD: %s\n", tID);
       strncpy(titleID, tID, 11);
     }
   }
@@ -297,13 +297,13 @@ const char *getPS1GenericTitleID() {
 
   // Read sector 16 (Primary Volume Descriptor)
   if (!sceCdRead(16, 1, &sectorData, &mode) || sceCdSync(0)) {
-    printf("Failed to read PVD\n");
+    DPRINTF("Failed to read PVD\n");
     return NULL;
   }
 
   // Make sure the PVD is valid
   if (strncmp(&sectorData[1], "CD001", 5)) {
-    printf("Invalid PVD\n");
+    DPRINTF("Invalid PVD\n");
     return NULL;
   }
 

@@ -8,24 +8,26 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <stdlib.h>
+// Reduce binary size by disabling unneeded functionality
+void _libcglue_timezone_update() {}
+void _libcglue_rtc_update() {}
+PS2_DISABLE_AUTOSTART_PTHREAD();
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
-    fail("Invalid number of arguments\n");
-    return -1;
+    // Try to quickboot with paths from .CNF located at the current working directory
+    fail("Quickboot failed: %d", handleQuickboot(argv[0]));
   }
 
   // Remove launcher path from arguments
   argc--;
   argv = &argv[1];
 
+#ifdef FMCB
   if (!strncmp("fmcb", argv[0], 4)) {
     fail("Failed to launch %s: %d", argv[0], handleFMCB(argc, argv));
-  } else {
-    fail("Failed to launch %s: %d", argv[0], launchPath(argc, argv));
   }
+#endif
 
-  // Try to launch
   fail("Failed to launch %s: %d", argv[0], launchPath(argc, argv));
 }

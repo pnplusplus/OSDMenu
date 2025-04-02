@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int isScreenInited = 0;
@@ -17,6 +18,7 @@ void initScreen() {
 
   init_scr();
   scr_setCursor(0);
+  scr_printf(".\n\n\n\n"); // To avoid messages being hidden by overscan
   isScreenInited = 1;
 }
 
@@ -28,7 +30,6 @@ void msg(const char *str, ...) {
   initScreen();
 
   scr_vprintf(str, args);
-  vprintf(str, args);
 
   va_end(args);
 }
@@ -41,7 +42,6 @@ void fail(const char *str, ...) {
   initScreen();
 
   scr_vprintf(str, args);
-  vprintf(str, args);
 
   va_end(args);
 
@@ -62,78 +62,80 @@ int tryFile(char *filepath) {
 // Attempts to launch ELF from device and path in argv[0]
 int launchPath(int argc, char *argv[]) {
   int ret = 0;
-  if (!strncmp("mmce", argv[0], 4)) {
-    ret = handleMMCE(argc, argv);
-  } else if (!strncmp("mc", argv[0], 2)) {
+  if (!strncmp("mc", argv[0], 2)) {
     ret = handleMC(argc, argv);
+#ifdef MMCE
+  } else if (!strncmp("mmce", argv[0], 4)) {
+    ret = handleMMCE(argc, argv);
+#endif
+#ifdef USB
   } else if (!strncmp("mass", argv[0], 4) || !strncmp("usb", argv[0], 3)) {
     ret = handleBDM(Device_USB, argc, argv);
+#endif
+#ifdef ATA
   } else if (!strncmp("ata", argv[0], 3)) {
     ret = handleBDM(Device_ATA, argc, argv);
+#endif
+#ifdef MX4SIO
   } else if (!strncmp("mx4sio", argv[0], 6)) {
     ret = handleBDM(Device_MX4SIO, argc, argv);
+#endif
+#ifdef ILINK
   } else if (!strncmp("ilink", argv[0], 5)) {
     ret = handleBDM(Device_iLink, argc, argv);
+#endif
+#ifdef UDPBD
   } else if (!strncmp("udpbd", argv[0], 5)) {
     ret = handleBDM(Device_UDPBD, argc, argv);
+#endif
+#ifdef APA
   } else if (!strncmp("hdd", argv[0], 3)) {
     ret = handlePFS(argc, argv);
+#endif
+#ifdef CDROM
   } else if (!strncmp("cdrom", argv[0], 5)) {
     ret = handleCDROM(argc, argv);
+#endif
+  } else {
+    return -ENODEV;
   }
 
   return ret;
 }
 
-// Based on LaunchELF code
-// getCNFString is the main CNF parser called for each CNF variable in a CNF file.
-// Input and output data is handled via its pointer parameters.
-// The return value flags 'false' when no variable is found. (normal at EOF)
-int getCNFString(char **cnfPos, char **name, char **value) {
-  char *pName, *pValue, *pToken = *cnfPos;
+// Adds a new string to linkedStr and returns
+linkedStr *addStr(linkedStr *lstr, char *str) {
+  linkedStr *newLstr = malloc(sizeof(linkedStr));
+  newLstr->str = strdup(str);
+  newLstr->next = NULL;
 
-nextLine:
-  while ((*pToken <= ' ') && (*pToken > '\0'))
-    pToken += 1; // Skip leading whitespace, if any
-  if (*pToken == '\0')
-    return 0; // Exit at EOF
+  if (lstr) {
+    linkedStr *tLstr = lstr;
+    // If lstr is not null, go to the last element and
+    // link the new element
+    while (tLstr->next)
+      tLstr = tLstr->next;
 
-  pName = pToken;      // Current pos is potential name
-  if (*pToken < 'A') { // If line is a comment line
-    while ((*pToken != '\r') && (*pToken != '\n') && (*pToken > '\0'))
-      pToken += 1; // Seek line end
-    goto nextLine; // Go back to try next line
+    tLstr->next = newLstr;
+    return lstr;
   }
 
-  while ((*pToken >= 'A') || ((*pToken >= '0') && (*pToken <= '9')))
-    pToken += 1; // Seek name end
-  if (*pToken == '\0')
-    return 0; // Exit at EOF
+  // Else, return the new element as the first one
+  return newLstr;
+}
 
-  while ((*pToken <= ' ') && (*pToken > '\0'))
-    *pToken++ = '\0'; // Zero and skip post-name whitespace
-  if (*pToken != '=')
-    return 0;       // Exit (syntax error) if '=' missing
-  *pToken++ = '\0'; // Zero '=' (possibly terminating name)
+// Frees all elements of linkedStr
+void freeLinkedStr(linkedStr *lstr) {
+  if (!lstr)
+    return;
 
-  while ((*pToken <= ' ') && (*pToken > '\0')      // Skip pre-value whitespace, if any
-         && (*pToken != '\r') && (*pToken != '\n') // but do not pass the end of the line
-         && (*pToken != '\7')                      // allow ctrl-G (BEL) in value
-  )
-    pToken += 1;
-  if (*pToken == '\0')
-    return 0;      // Exit at EOF
-  pValue = pToken; // Current pos is potential value
-
-  while ((*pToken != '\r') && (*pToken != '\n') && (*pToken != '\0'))
-    pToken += 1; // Seek line end
-  if (*pToken != '\0')
-    *pToken++ = '\0'; // Terminate value (passing if not EOF)
-  while ((*pToken <= ' ') && (*pToken > '\0'))
-    pToken += 1; // Skip following whitespace, if any
-
-  *cnfPos = pToken; // Set new CNF file position
-  *name = pName;    // Set found variable name
-  *value = pValue;  // Set found variable value
-  return 1;
+  linkedStr *tPtr = lstr;
+  while (lstr->next) {
+    free(lstr->str);
+    tPtr = lstr->next;
+    free(lstr);
+    lstr = tPtr;
+  }
+  free(lstr->str);
+  free(lstr);
 }
