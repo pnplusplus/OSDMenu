@@ -1,8 +1,8 @@
-# OSDSYS Menu Launcher
+# OSDMenu
 
-This is an attempt at porting Free McBoot 1.8 OSDSYS patches to modern PS2SDK.  
-Tested on SCPH-39004 and SCPH-70000.
+Free McBoot 1.8 OSDSYS patches ported to modern PS2SDK with some useful additions.  
 
+Tested on SCPH-39000, SCPH-70000 and SCPH-77000.  
 Will not work on "protokernel" systems (SCPH-10000, SCPH-15000) and possibly SCPH-18000 and SCPH-50009.
 
 ## Usage
@@ -20,12 +20,13 @@ Will not work on "protokernel" systems (SCPH-10000, SCPH-15000) and possibly SCP
 - ELF paths are not checked by the patcher, so every named entry from FMCB config file is displayed in hacked OSDSYS menu
 - A separate launcher is used to launch menu entries
 - CD/DVD support was extended to support skipping PS2LOGO, mounting VMCs on MMCE devices, showing visual GameID for PixelFX devices and booting DKWDRV for PS1 discs
+- "Unlimited" number of paths for each entry
 
 Due to memory limitations and the need to support more devices, the original FMCB launcher was split into two parts: patcher and launcher.
 
 ## Patcher
 
-This is a slimmed-down and refactored version of OSDSYS patches from FMCB 1.8 for modern PS2SDK.  
+This is a slimmed-down and refactored version of OSDSYS patches from FMCB 1.8 for modern PS2SDK with some new patches sprinkled in.  
 It reads settings from `mc?:/SYS-CONF/OSDMENU.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
 - Custom OSDSYS menu entries
 - Infinite scrolling
@@ -34,6 +35,7 @@ It reads settings from `mc?:/SYS-CONF/OSDMENU.CNF` and patches the `rom0:OSDSYS`
 - Force PAL/NTSC video mode
 - HDD update check bypass
 - Override PS1 and PS2 disc launch functions with custom code that starts the launcher
+- Additional system information in version submenu (Video mode, ROM version, EE, GS and MechaCon revision)
 
 See the list for supported `OSDMENU.CNF` options [here](#freemcbcnf).  
 For every menu item and disc launch, it starts the launcher from `mc?:/BOOT/launcher.elf` and passes the menu index to it.
@@ -54,6 +56,8 @@ Supported paths are:
 - `hdd0:` — internal APA-formatted HDD
 - `cdrom` — CD/DVD discs
 - `fmcb` — special path for the patcher
+
+Device support can be enabled and disabled by changing build-time configuration options (see [Makefile](launcher/Makefile))
 
 ### `udpbd` handler
 
@@ -77,6 +81,20 @@ searches for `path?_OSDSYS_ITEM_<idx>` and `arg_OSDSYS_ITEM_<idx>` entries and a
 
 Respects `cdrom_skip_ps2logo`, `cdrom_disable_gameid` and `cdrom_use_dkwdrv` for `cdrom` paths.
 
+### Quickboot support
+When the launcher is started without any arguments, it tries to open `<ELF file name>.CNF`
+file at the current working directory
+and attempts to launch every path in order.
+
+CNF syntax example:
+```ini
+path=mmce?:/apps/wle.elf
+path=mmce?:/apps/wle2.elf
+path=ata:/apps/wle.elf
+path=mc?:/BOOT/BOOT.ELF
+arg=-testarg
+arg=-testarg2
+```
 
 ## OSDMENU.CNF
 
