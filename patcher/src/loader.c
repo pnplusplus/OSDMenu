@@ -1,5 +1,5 @@
-#include "patches_common.h"
 #include "init.h"
+#include "patches_common.h"
 #include "patches_osdmenu.h"
 #include "settings.h"
 #include "splash.h"

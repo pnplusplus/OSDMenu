@@ -1,8 +1,8 @@
-#include "patterns_common.h"
-#include "patches_fmcb.h"
 #include "init.h"
 #include "loader.h"
+#include "patches_fmcb.h"
 #include "patches_osdmenu.h"
+#include "patterns_common.h"
 #include "settings.h"
 #include <kernel.h>
 #include <loadfile.h>

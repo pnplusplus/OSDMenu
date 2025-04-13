@@ -1,11 +1,11 @@
 // FMCB 1.8 OSDSYS patches by Neme
 // FMCB 1.9 patches by sp193
 #include "patches_fmcb.h"
-#include "patches_common.h"
-#include "patterns_fmcb.h"
 #include "init.h"
 #include "loader.h"
+#include "patches_common.h"
 #include "patches_osdmenu.h"
+#include "patterns_fmcb.h"
 #include "settings.h"
 #include <kernel.h>
 #include <loadfile.h>

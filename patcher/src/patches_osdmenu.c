@@ -385,7 +385,7 @@ char *versionInfoInitHandlerProtokernel(char *label, char *value, char *submenu)
   char *res = getDVDPlayerVersion(label, value, submenu);
 
   // Extend the string table used by the version menu drawing function.
-  // It picks up the entries automatically and stops once it gets a NULL pointer (0)
+  // It picks up the entries automatically and stops once it reads an empty string
   //
   // Each table entry is represented as follows:
   // First 32 bytes — entry name string

@@ -1,6 +1,6 @@
-#include "patches_common.h"
 #include "gs.h"
 #include "init.h"
+#include "patches_common.h"
 #include "settings.h"
 #include "splash.h"
 #include <kernel.h>
