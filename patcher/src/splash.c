@@ -19,8 +19,8 @@ typedef struct {
 } vmode_t;
 
 vmode_t vmodes[] = {
-    {GS_MODE_PAL, 640, 512, 0, 32, 4}, // PAL
-    {GS_MODE_NTSC, 640, 448, 0, 32, 4}  // NTSC
+    {GS_MODE_PAL, 640, 512, 0, 32, 4},  // PAL
+    {GS_MODE_NTSC, 640, 448, 0, 32, 4}, // NTSC
 };
 vmode_t *selectedMode;
 
@@ -34,9 +34,14 @@ void gsPrintBitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t *dat
 
 // Initializes GS and displays FMCB splash screen
 void gsDisplaySplash(GSVideoMode mode) {
-  int splashY = (mode == GS_MODE_PAL) ? 247 : 185;
+  int splashY = 185;
+  selectedMode = &(vmodes[1]);
 
-  selectedMode = &(vmodes[mode]);
+  if (mode == GS_MODE_PAL) {
+    splashY = 247;
+    selectedMode = &(vmodes[0]);
+  }
+
   gsInit(selectedMode);
   gsClearScreen();
   gsPrintBitmap((640 - splashWidth) / 2, splashY, splashWidth, splashHeight, splash);
