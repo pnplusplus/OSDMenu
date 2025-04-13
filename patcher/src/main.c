@@ -1,4 +1,4 @@
-#include "fmcb_patches.h"
+#include "patches_common.h"
 #include "gs.h"
 #include "init.h"
 #include "settings.h"
@@ -41,8 +41,11 @@ int probeLauncher() {
 
   return 0;
 }
+#include "loader.h"
 
 int main(int argc, char *argv[]) {
+  void InitTLBFunctions(void);
+  void InitTLB(void);
   // Clear memory
   wipeUserMem();
 
@@ -69,16 +72,23 @@ int main(int argc, char *argv[]) {
   GSVideoMode vmode = GS_MODE_NTSC; // Use NTSC by default
 
   // Respect preferred mode
-  if (!strcmp(settings.videoMode, "AUTO")) {
+  if (!settings.videoMode) {
     // If mode is not set, read console region from ROM
     if (settings.romver[4] == 'E')
       vmode = GS_MODE_PAL;
-  } else if (!strcmp(settings.videoMode, "PAL"))
+  } else if (settings.videoMode == GS_MODE_PAL)
     vmode = GS_MODE_PAL;
 
   gsDisplaySplash(vmode);
 #endif
 
-  launchOSDSYS();
+  int fd = fioOpen("rom0:MBROWS", FIO_O_RDONLY);
+  if (fd >= 0) {
+    // MBROWS exists only on protokernel systems
+    fioClose(fd);
+    launchProtokernelOSDSYS();
+  } else
+    launchOSDSYS();
+
   Exit(-1);
 }

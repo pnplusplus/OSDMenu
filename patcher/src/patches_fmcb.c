@@ -1,17 +1,18 @@
 // FMCB 1.8 OSDSYS patches by Neme
-#include "fmcb_patterns.h"
+// FMCB 1.9 patches by sp193
+#include "patches_fmcb.h"
+#include "patches_common.h"
+#include "patterns_fmcb.h"
 #include "init.h"
 #include "loader.h"
-#include "osdmenu_patches.h"
+#include "patches_osdmenu.h"
 #include "settings.h"
 #include <kernel.h>
 #include <loadfile.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define OSD_MAGIC 0x39390000 // arbitrary number to identify added menu items
-
-static uint32_t osdMenu[4 + NEWITEMS * 2];
+static uint32_t osdMenu[4 + CUSTOM_ITEMS * 2];
 
 struct OSDMenuInfo {
   uint32_t unknown1;
@@ -22,44 +23,7 @@ struct OSDMenuInfo {
 };
 
 static struct OSDMenuInfo *menuInfo = NULL;
-
-// Searches for byte pattern in memory
-uint8_t *findPatternWithMask(uint8_t *buf, uint32_t bufsize, uint8_t *bytes, uint8_t *mask, uint32_t len) {
-  uint32_t i, j;
-
-  for (i = 0; i < bufsize - len; i++) {
-    for (j = 0; j < len; j++) {
-      if ((buf[i + j] & mask[j]) != bytes[j])
-        break;
-    }
-    if (j == len)
-      return &buf[i];
-  }
-  return NULL;
-}
-
-// Searches for string in memory
-char *findString(const char *string, char *buf, uint32_t bufsize) {
-  uint32_t i;
-  const char *s, *p;
-
-  for (i = 0; i < bufsize; i++) {
-    s = string;
-    for (p = buf + i; *s && *s == *p; s++, p++)
-      ;
-    if (!*s)
-      return (buf + i);
-  }
-  return NULL;
-}
-
-// Returns the pointer to OSD string
-const char *getStringPointer(const char **strings, uint32_t index) {
-  if ((index & 0xffff0000) == OSD_MAGIC)
-    return settings.menuItemName[index & 0xffff];
-
-  return strings[index];
-}
+#define OSD_MAGIC 0x39390000 // arbitrary number to identify added menu items
 
 // Handles custom menu entries
 int handleMenuEntry(int selected) {
@@ -103,16 +67,26 @@ int handleMenuEntry(int selected) {
   return 0;
 }
 
+// Returns the pointer to OSD string
+const char *getStringPointer(const char **strings, uint32_t index) {
+  if ((index & 0xffff0000) == OSD_MAGIC)
+    return settings.menuItemName[index & 0xffff];
+
+  return strings[index];
+}
+
 // Patches OSD menu to include custom menu entries
 void patchMenu(uint8_t *osd) {
   uint8_t *ptr;
   uint32_t tmp, menuAddr, osdstrAddr, entryAddr, i;
 
-  // Search for all patterns and return if one of them not found
+  // Try to find the menu info struct
   for (tmp = 0; tmp < 0x100000; tmp = (uint32_t)(ptr - osd + 4)) {
     ptr = findPatternWithMask(osd + tmp, 0x100000 - tmp, (uint8_t *)patternMenuInfo, (uint8_t *)patternMenuInfo_mask, sizeof(patternMenuInfo));
     if (!ptr)
       return;
+
+    // Found if the current address points to the pointer to "Browser" string
     if (_lw((uint32_t)ptr + 4) == (uint32_t)ptr - 4 * 4)
       break;
   }
@@ -120,12 +94,12 @@ void patchMenu(uint8_t *osd) {
 
   menuInfo = (struct OSDMenuInfo *)menuAddr;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternOSDString, (uint8_t *)patternOSDString_mask, sizeof(patternOSDString));
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternOSDString, (uint8_t *)patternOSDString_mask, sizeof(patternOSDString));
   if (!ptr)
     return;
   osdstrAddr = (uint32_t)ptr;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternUserInputHandler, (uint8_t *)patternUserInputHandler_mask,
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternUserInputHandler, (uint8_t *)patternUserInputHandler_mask,
                             sizeof(patternUserInputHandler));
   if (!ptr)
     return;
@@ -167,6 +141,9 @@ static uint32_t colorSelected[4] __attribute__((aligned(16)));
 static uint32_t colorUnselected[4] __attribute__((aligned(16)));
 
 static void (*DrawMenuItem)(int X, int Y, uint32_t *color, int alpha, const char *string);
+// Protokernel DrawMenuItem expects a pointer to string address, not the string address
+// For later consoles, this function is set to DrawMenuItem
+static void (*DrawMenuItemStringPtr)(int X, int Y, uint32_t *color, int alpha, const char *string);
 static int dx = 0;
 static int vel, acc;
 static int offsY = 0;
@@ -179,8 +156,11 @@ void drawMenuItemSelected(int X, int Y, uint32_t *color, int alpha, const char *
   for (i = 0; i < 4; i++)
     colorSelected[i] = settings.colorSelected[i];
 
-  if (!settings.scrollMenu) { // Old style menu
-    (*DrawMenuItem)(settings.menuX, Y - settings.menuItemCount * 10, colorSelected, alpha, string);
+  if (alpha > 0x80)
+    alpha = 0x80;
+
+  if (!(settings.patcherFlags & FLAG_SCROLL_MENU)) { // Old style menu
+    DrawMenuItem(settings.menuX, Y - settings.menuItemCount * 10, colorSelected, alpha, string);
   } else { // New style menu
     if (num == 0) {
       int amount;
@@ -198,14 +178,14 @@ void drawMenuItemSelected(int X, int Y, uint32_t *color, int alpha, const char *
       if (vel < -settings.cursorMaxVelocity || vel > settings.cursorMaxVelocity)
         acc = -acc;
       dx += vel;
-      (*DrawMenuItem)(settings.menuX, settings.menuY + Y, colorSelected, alpha, string);
-      (*DrawMenuItem)(settings.menuX - 220 + (dx >> 8), settings.menuY + Y, colorSelected, alpha, settings.leftCursor);
-      (*DrawMenuItem)(settings.menuX + 220 - (dx >> 8), settings.menuY + Y, colorSelected, alpha, settings.rightCursor);
+      DrawMenuItem(settings.menuX, settings.menuY + Y, colorSelected, alpha, string);
+      DrawMenuItemStringPtr(settings.menuX - 220 + (dx >> 8), settings.menuY + Y, colorSelected, alpha, settings.leftCursor);
+      DrawMenuItemStringPtr(settings.menuX + 220 - (dx >> 8), settings.menuY + Y, colorSelected, alpha, settings.rightCursor);
     }
-    (*DrawMenuItem)(settings.menuX, settings.menuY - ((settings.displayedItems + 1) * (fontHeight / 2)), colorSelected, 128,
-                    settings.menuDelimiterTop);
-    (*DrawMenuItem)(settings.menuX, settings.menuY + ((settings.displayedItems + 1) * (fontHeight / 2)), colorSelected, 128,
-                    settings.menuDelimiterBottom);
+    DrawMenuItemStringPtr(settings.menuX, settings.menuY - (settings.displayedItems * (fontHeight / 2) + (fontHeight / 2)), colorSelected, alpha,
+                          settings.menuDelimiterTop);
+    DrawMenuItemStringPtr(settings.menuX, settings.menuY + (settings.displayedItems * (fontHeight / 2) + (fontHeight / 2)), colorSelected, alpha,
+                          settings.menuDelimiterBottom);
   }
 }
 
@@ -216,8 +196,8 @@ void drawMenuItemUnselected(int X, int Y, uint32_t *color, int alpha, const char
   for (i = 0; i < 4; i++)
     colorUnselected[i] = settings.colorUnselected[i];
 
-  if (!settings.scrollMenu) { // Old style menu
-    (*DrawMenuItem)(settings.menuX, Y - settings.menuItemCount * 10, colorUnselected, alpha, string);
+  if (!(settings.patcherFlags & FLAG_SCROLL_MENU)) { // Old style menu
+    DrawMenuItem(settings.menuX, Y - settings.menuItemCount * 10, colorUnselected, alpha, string);
   } else { // New style menu
     if (num == 0) {
       int amount, destY = menuInfo->currentEntry << 4;
@@ -238,7 +218,7 @@ void drawMenuItemUnselected(int X, int Y, uint32_t *color, int alpha, const char
       if (alpha < 0)
         alpha = 0;
 
-      (*DrawMenuItem)(settings.menuX, settings.menuY + Y, colorUnselected, alpha, string);
+      DrawMenuItem(settings.menuX, settings.menuY + Y, colorUnselected, alpha, string);
     }
   }
 }
@@ -273,7 +253,7 @@ void patchMenuDraw(uint8_t *osd) {
   if (!menuInfo)
     return;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternDrawMenuItem, (uint8_t *)patternDrawMenuItem_mask, sizeof(patternDrawMenuItem));
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternDrawMenuItem, (uint8_t *)patternDrawMenuItem_mask, sizeof(patternDrawMenuItem));
   if (!ptr)
     return;
   pSelItem = (uint32_t)ptr; // code for selected menu item
@@ -287,6 +267,7 @@ void patchMenuDraw(uint8_t *osd) {
   tmp &= 0x03ffffff;
   tmp <<= 2;
   DrawMenuItem = (void *)tmp;
+  DrawMenuItemStringPtr = DrawMenuItem;
 
   tmp = 0x0c000000;
   tmp |= ((uint32_t)drawMenuItemSelected >> 2);
@@ -318,8 +299,8 @@ void getButtonsPanelType(int type) {
   // Get Buttons Panel type (catch it in a0)
   ButtonsPanel_Type = type;
 
-  // Call original function that was overwritted
-  (*DrawButtonPanel_1stfunc)();
+  // Call original function that was overridden
+  DrawButtonPanel_1stfunc();
 }
 
 // drawNonselectableEntryLeft() is called for all items less the last
@@ -331,9 +312,9 @@ void drawNonselectableEntryLeft(int X, int Y, uint32_t *color, int alpha, const 
     if (settings.enterY == -1)
       settings.enterY = Y;
 
-    (*DrawNonSelectableItem)(settings.enterX + 28, settings.enterY, color, alpha, string);
+    DrawNonSelectableItem(settings.enterX + 28, settings.enterY, color, alpha, string);
   } else
-    (*DrawNonSelectableItem)(X, Y, color, alpha, string);
+    DrawNonSelectableItem(X, Y, color, alpha, string);
 }
 
 // drawNonselectableEntryRight() is called only for last item (Options or Version)
@@ -345,9 +326,9 @@ void drawNonselectableEntryRight(int X, int Y, uint32_t *color, int alpha, const
     if (settings.versionY == -1)
       settings.versionY = Y;
 
-    (*DrawNonSelectableItem)(settings.versionX + 28, settings.versionY, color, alpha, string);
+    DrawNonSelectableItem(settings.versionX + 28, settings.versionY, color, alpha, string);
   } else
-    (*DrawNonSelectableItem)(X, Y, color, alpha, string);
+    DrawNonSelectableItem(X, Y, color, alpha, string);
 }
 
 // drawIconLeft() is called for all button icons less the last
@@ -359,9 +340,9 @@ void drawIconLeft(int type, int X, int Y, int alpha) {
     if (settings.enterY == -1)
       settings.enterY = Y;
 
-    (*DrawIcon)(type, settings.enterX, settings.enterY, alpha);
+    DrawIcon(type, settings.enterX, settings.enterY, alpha);
   } else
-    (*DrawIcon)(type, X, Y, alpha);
+    DrawIcon(type, X, Y, alpha);
 }
 
 // drawIconRight() is called for only for last button icon (Options or Version)
@@ -373,9 +354,9 @@ void drawIconRight(int type, int X, int Y, int alpha) {
     if (settings.versionY == -1)
       settings.versionY = Y;
 
-    (*DrawIcon)(type, settings.versionX, settings.versionY, alpha);
+    DrawIcon(type, settings.versionX, settings.versionY, alpha);
   } else
-    (*DrawIcon)(type, X, Y, alpha);
+    DrawIcon(type, X, Y, alpha);
 }
 
 // Patches OSDSYS button prompts
@@ -398,7 +379,7 @@ void patchMenuButtonPanel(uint8_t *osd) {
   uint32_t mask[1];
 
   // Search and overwrite 1st function call in DrawButtonPanel function
-  firstPtr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternDrawButtonPanel_1, (uint8_t *)patternDrawButtonPanel_1_mask,
+  firstPtr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternDrawButtonPanel_1, (uint8_t *)patternDrawButtonPanel_1_mask,
                                  sizeof(patternDrawButtonPanel_1));
   if (!firstPtr)
     return;
@@ -487,51 +468,25 @@ void patchMenuButtonPanel(uint8_t *osd) {
 //    do_nothing,				    // none (return 1)
 //    exec_hdd_stuff			  // HDDLOAD
 //}
-//
-// Protokernels:
-// uint32_t *discLaunchHandlers[6] = {
-//    reboot,					      // perform LoadExecPS2(NULL, 0, NULL)
-//    do_nothing,				    // none (return 1)
-//    exec_ps2_game_disc,		// PS2 game DVD
-//    exec_ps2_game_disc,		// PS2 game CD
-//    exec_ps1_game_disc,		// PS1 game CD
-//    exec_dvdv_disc			  // DVD Video
-//}
-static uint32_t *discLaunchHandlers = NULL;
-
 // Patches the disc launch handlers to load discs with the launcher
 void patchDiscLaunch(uint8_t *osd) {
   uint8_t *ptr;
   uint32_t tmp, pFn;
+  static uint32_t *discLaunchHandlers = NULL;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternExecuteDisc, (uint8_t *)patternExecuteDisc_mask, sizeof(patternExecuteDisc));
-  if (ptr) {
-    pFn = (uint32_t)ptr; // address of the ExecuteDisc function
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternExecuteDisc, (uint8_t *)patternExecuteDisc_mask, sizeof(patternExecuteDisc));
+  if (!ptr)
+    return;
 
-    tmp = _lw(pFn + 40) << 16;
-    tmp += (signed short)(_lw(pFn + 44) & 0xffff);
-    discLaunchHandlers = (uint32_t *)tmp;
+  pFn = (uint32_t)ptr; // address of the ExecuteDisc function
 
-    discLaunchHandlers[0] = (uint32_t)launchDisc; // Overwrite PS2 DVD function pointer
-    discLaunchHandlers[1] = (uint32_t)launchDisc; // Overwrite PS2 CD function pointer
-    discLaunchHandlers[2] = (uint32_t)launchDisc; // Overwrite PS1 function pointer
-  } else {
-    // Handler protokernel disc launchers
-    ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternExecuteDiscProto, (uint8_t *)patternExecuteDiscProto_mask,
-                              sizeof(patternExecuteDiscProto));
-    if (!ptr)
-      return;
+  tmp = _lw(pFn + 40) << 16;
+  tmp += (int16_t)(_lw(pFn + 44) & 0xffff);
+  discLaunchHandlers = (uint32_t *)tmp;
 
-    pFn = (uint32_t)ptr;
-
-    tmp = _lw(pFn + 28) << 16;
-    tmp += (signed short)(_lw(pFn + 36) & 0xffff);
-    discLaunchHandlers = (uint32_t *)tmp;
-
-    discLaunchHandlers[2] = (uint32_t)launchDisc; // Overwrite protokernel PS2 DVD function pointer
-    discLaunchHandlers[3] = (uint32_t)launchDisc; // Overwrite protokernel PS2 CD function pointer
-    discLaunchHandlers[4] = (uint32_t)launchDisc; // Overwrite protokernel PS1 function pointer
-  }
+  discLaunchHandlers[0] = (uint32_t)launchDisc; // Overwrite PS2 DVD function pointer
+  discLaunchHandlers[1] = (uint32_t)launchDisc; // Overwrite PS2 CD function pointer
+  discLaunchHandlers[2] = (uint32_t)launchDisc; // Overwrite PS1 function pointer
 }
 
 // Patches automatic disc launch
@@ -539,12 +494,12 @@ void patchSkipDisc(uint8_t *osd) {
   uint8_t *ptr;
   uint32_t tmp, addr2, addr3, dist;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternDetectDisc_1, (uint8_t *)patternDetectDisc_1_mask, sizeof(patternDetectDisc_1));
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternDetectDisc_1, (uint8_t *)patternDetectDisc_1_mask, sizeof(patternDetectDisc_1));
   if (!ptr)
     return;
   addr2 = (uint32_t)ptr;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternDetectDisc_2, (uint8_t *)patternDetectDisc_2_mask, sizeof(patternDetectDisc_2));
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternDetectDisc_2, (uint8_t *)patternDetectDisc_2_mask, sizeof(patternDetectDisc_2));
   if (!ptr)
     return;
   addr3 = (uint32_t)ptr;
@@ -564,14 +519,20 @@ static uint32_t menuLoopPatch_2[9] = {
 };
 
 // Patches menu scrolling
-void patchMenuInfiniteScrolling(uint8_t *osd) {
+void patchMenuInfiniteScrolling(uint8_t *osd, int isProtokernel) {
   int i;
   uint8_t *ptr;
   uint32_t *addr, *src, *dst;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternMenuLoop, (uint8_t *)patternMenuLoop_mask, sizeof(patternMenuLoop));
+  if (isProtokernel)
+    ptr = findPatternWithMask(osd + PROTOKERNEL_MENU_OFFSET, 0x100000, (uint8_t *)patternMenuLoop_Proto, (uint8_t *)patternMenuLoop_mask,
+                              sizeof(patternMenuLoop_Proto));
+  else
+    ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternMenuLoop, (uint8_t *)patternMenuLoop_mask, sizeof(patternMenuLoop));
+
   if (!ptr)
     return;
+
   addr = (uint32_t *)ptr;
 
   if (addr[9] == 0x30624000 && addr[20] == 0x24045200) {
@@ -591,24 +552,17 @@ void patchMenuInfiniteScrolling(uint8_t *osd) {
 }
 
 // Forces the video mode
-void patchVideoMode(uint8_t *osd) {
+void patchVideoMode(uint8_t *osd, GSVideoMode mode) {
   uint8_t *ptr;
 
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternVideoMode, (uint8_t *)patternVideoMode_mask, sizeof(patternVideoMode));
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternVideoMode, (uint8_t *)patternVideoMode_mask, sizeof(patternVideoMode));
   if (!ptr)
     return;
 
-  if (!strcmp(settings.videoMode, "NTSC"))           // NTSC:
-    _sw(0x0000102d, (uint32_t)ptr + 20);             // set return value to 0
-  else if (!strcmp(settings.videoMode, "PAL"))       // PAL:
-    _sw(0x24020001, (uint32_t)ptr + 20);             // set return value to 1
-  else if (!strcmp(settings.videoMode, "480p")) {    // 480p:
-    _sw(0x0000102d, (uint32_t)ptr + 20);             // set return value to 0 to force NTSC
-    patchGSVideoMode(osd, GS_MODE_DTV_480P);         // apply 480p patch
-  } else if (!strcmp(settings.videoMode, "1080i")) { // 1080i:
-    _sw(0x0000102d, (uint32_t)ptr + 20);             // set return value to 0 to force NTSC
-    patchGSVideoMode(osd, GS_MODE_DTV_1080I);        // apply 1080i patch
-  }
+  if (mode == GS_MODE_PAL)
+    _sw(0x24020001, (uint32_t)ptr + 20); // set return value to 1
+  else
+    _sw(0x0000102d, (uint32_t)ptr + 20); // set return value to 0 to force NTSC
 }
 
 // Patches HDD update code for ROMs not supporting "SkipHdd" arg
@@ -617,7 +571,7 @@ void patchSkipHDD(uint8_t *osd) {
   uint32_t addr;
 
   // Search code near MC Update & HDD load
-  ptr = findPatternWithMask(osd, 0x00100000, (uint8_t *)patternHDDLoad, (uint8_t *)patternHDDLoad_mask, sizeof(patternHDDLoad));
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternHDDLoad, (uint8_t *)patternHDDLoad_mask, sizeof(patternHDDLoad));
   if (!ptr)
     return;
   addr = (uint32_t)ptr;
@@ -626,96 +580,183 @@ void patchSkipHDD(uint8_t *osd) {
   _sw(0x10000000 + ((signed short)(_lw(addr + 28) & 0xffff) + 5), addr + 8);
 }
 
-// Applies patches and executes OSDSYS
-void patchExecuteOSDSYS(void *epc, void *gp) {
-  int n = 0;
-  char *args[5], *ptr;
+//
+// Protokernel patches reverse engineered from FMCB1.9
+// All menu code seems to be located starting from 0x600000
+//
 
-  args[n++] = "rom0:";
+// Patches OSD menu to include custom menu entries
+void patchMenuProtokernel(uint8_t *osd) {
+  uint8_t *ptr;
+  uint32_t tmp, menuAddr, entryAddr, i;
 
-  if (settings.hackedOSDSYS) {
-    // If hacked OSDSYS is enabled, apply menu patch
-    patchMenu((uint8_t *)epc);
-    patchMenuDraw((uint8_t *)epc);
-    patchMenuInfiniteScrolling((uint8_t *)epc);
-    patchMenuButtonPanel((uint8_t *)epc);
+  // Try to find the menu info struct
+  for (tmp = 0; tmp < 0x100000; tmp = (uint32_t)(ptr - osd + 4)) {
+    ptr = findPatternWithMask(osd + PROTOKERNEL_MENU_OFFSET + tmp, 0x100000 - tmp, (uint8_t *)patternMenuInfo_Proto,
+                              (uint8_t *)patternMenuInfo_Proto_mask, sizeof(patternMenuInfo_Proto));
+    if (!ptr)
+      return;
+
+    // Found if the current address points to the pointer to "Browser" string
+    if (_lw((uint32_t)ptr) == (uint32_t)ptr - 4 * 8)
+      break;
+  }
+  menuAddr = (uint32_t)ptr - 4;
+  menuInfo = (struct OSDMenuInfo *)menuAddr;
+
+  ptr = findPatternWithMask(osd + PROTOKERNEL_MENU_OFFSET, 0x100000, (uint8_t *)patternUserInputHandler, (uint8_t *)patternUserInputHandler_mask,
+                            sizeof(patternUserInputHandler));
+  if (!ptr)
+    return;
+  entryAddr = (uint32_t)ptr;
+
+  // Patch the user input handling function
+  tmp = 0x0c000000;
+  tmp |= ((uint32_t)handleMenuEntry >> 2);
+  _sw(tmp, entryAddr + 2 * 4);           // jal    handleMenuEntry
+  tmp = _lw(entryAddr + 3 * 4) & 0xffff; //
+  tmp |= 0x8c440000;                     //
+  _sw(tmp, entryAddr + 3 * 4);           // lw     a0, $xxxx(v0)
+  _sw(0x1040000a, entryAddr + 4 * 4);    // beq    v0, zero, exit
+
+  // Build the OSD menu
+  osdMenu[0] = _lw(menuAddr - 4 * 7); // "Browser"
+  osdMenu[1] = _lw(menuAddr - 4 * 6);
+  osdMenu[2] = _lw(menuAddr - 4 * 5);
+  osdMenu[3] = _lw(menuAddr - 4 * 4); // "System Configuration"
+  osdMenu[4] = _lw(menuAddr - 4 * 3);
+  osdMenu[5] = _lw(menuAddr - 4 * 2);
+
+  for (i = 0; i < settings.menuItemCount; i++) {
+    if (settings.menuItemName[i][0] == '\0')
+      continue;
+
+    osdMenu[6 + i * 3] = (uint32_t)settings.menuItemName[i];
+    osdMenu[7 + i * 3] = (uint32_t)settings.menuItemName[i];
+    osdMenu[8 + i * 3] = 0;
   }
 
-  // Apply version menu patch
-  patchVersionInfo((uint8_t *)epc);
-
-  // Patch the video mode only if different from AUTO
-  if (strcmp(settings.videoMode, "AUTO"))
-    patchVideoMode((uint8_t *)epc);
-
-  // Apply skip disc patch
-  if (settings.skipDisc)
-    patchSkipDisc((uint8_t *)epc);
-
-  // Replace function calls with no-ops?
-  if (_lw(0x202d78) == 0x0c080898 && _lw(0x202b40) == 0x0c080934 && _lw(0x20ffa0) == 0x0c080934) {
-    _sw(0x00000000, 0x202d78); // replace jal 0x0080898 with nop
-    _sw(0x24020000, 0x202b40); // replace jal 0x0080934 with addiu 0, v0, 0
-    _sw(0x24020000, 0x20ffa0); // replace jal 0x0080934 with addiu 0, v0, 0
-  }
-
-  if (settings.goToInnerBrowser)
-    args[n++] = "BootBrowser"; // Pass BootBrowser to launch internal mc browser
-  else if ((settings.skipDisc) || (settings.skipLogo))
-    args[n++] = "BootClock"; // Pass BootClock to skip OSDSYS intro
-
-  if (findString("SkipMc", (char *)epc, 0x100000)) // Pass SkipMc argument
-    args[n++] = "SkipMc";                          // Skip mc?:/BREXEC-SYSTEM/osdxxx.elf update on v5 and above
-
-  if (findString("SkipHdd", (char *)epc, 0x100000)) // Pass SkipHdd argument if the ROM supports it
-    args[n++] = "SkipHdd";                          // Skip HDDLOAD on v5 and above
-  else
-    patchSkipHDD((uint8_t *)epc); // Skip HDD patch for earlier ROMs
-
-  // Apply disc launch patch to forward disc launch to the launcher
-  patchDiscLaunch((uint8_t *)epc);
-
-  // To avoid loop in OSDSYS (Handle those models not supporting SkipMc arg) :
-  while ((ptr = findString("EXEC-SYSTEM", (char *)epc, 0x100000)))
-    strncpy(ptr, "EXEC-OSDSYS", 12);
-
-  FlushCache(0);
-  FlushCache(2);
-  ExecPS2(epc, gp, n, args);
-  Exit(-1);
+  menuInfo->menuPtr = osdMenu;                       // store menu pointer
+  menuInfo->entryCount = 2 + settings.menuItemCount; // store number of menu items
 }
 
-// Loads OSDSYS from ROM and handles the patching
-void launchOSDSYS(void) {
+// Protokernel drawing functions don't pass anything indicating the entry index.
+// Y coordinate is calculated using (0x62 + <entry index> * 0x10) and can be used to emulate this value.
+// drawMenuItemSelected/drawMenuItemUnelected expect num to be equal (<entry index> * 0x8)
+void drawMenuItemSelectedProtokernel(int X, int Y, uint32_t *color, int alpha, const char *string) {
+  drawMenuItemSelected(X, Y, color, alpha, string, ((Y - 0x62) / 0x10) * 0x8);
+}
+void drawMenuItemUnselectedProtokernel(int X, int Y, uint32_t *color, int alpha, const char *string) {
+  drawMenuItemUnselected(X, Y, color, alpha, string, ((Y - 0x62) / 0x10) * 0x8);
+}
+
+// Protokernel DrawMenuItem expects a pointer to string address, not the string address
+// ROMs 1.00 and 1.01 differ in how they handle menu item strings.
+// ROM 1.00 seems to use whatever's at the next address for our custom header and footer
+// ROM 1.01 uses the passed address.
+// Support both by passing array address that has both entries pointing to the same string.
+const char *drawMenuItemLanding[2] = {};
+void drawMenuItemProtokernel(int X, int Y, uint32_t *color, int alpha, const char *string) {
+  drawMenuItemLanding[0] = string;
+  drawMenuItemLanding[1] = string;
+  DrawMenuItem(X, Y, color, alpha, (char *)&drawMenuItemLanding);
+}
+
+// Patches menu drawing functions
+void patchMenuDrawProtokernel(uint8_t *osd) {
   uint8_t *ptr;
-  t_ExecData exec;
+  uint32_t tmp, pSelItem, pUnselItem;
 
-  SifLoadElf("rom0:OSDSYS", &exec);
+  vel = settings.cursorMaxVelocity;
+  acc = settings.cursorAcceleration;
 
-  if (exec.epc > 0) {
-    // If it loaded to 0x200000 it's probably not packed (protokernels).
-    // In this case just patch and execute it.
-    if ((exec.epc & 0xfff00000) == 0x00200000) {
-      resetModules();
-      patchExecuteOSDSYS((void *)exec.epc, (void *)exec.gp);
-    }
+  settings.displayedItems |= 1; // must be odd value
+  if (settings.displayedItems < 1)
+    settings.displayedItems = 1;
+  if (settings.displayedItems > 15)
+    settings.displayedItems = 15;
 
-    // Find the ExecPS2 function in the unpacker starting from 0x100000.
-    ptr = findPatternWithMask((uint8_t *)0x100000, 0x1000, (uint8_t *)patternExecPS2, (uint8_t *)patternExecPS2_mask, sizeof(patternExecPS2));
+  if (!menuInfo)
+    return;
 
-    // If found, patch it to call patchExecuteOSDSYS() function.
-    if (ptr) {
-      uint32_t instr = 0x0c000000;
-      instr |= ((uint32_t)patchExecuteOSDSYS >> 2);
-      *(uint32_t *)ptr = instr;
-      *(uint32_t *)&ptr[4] = 0;
-    }
+  ptr = findPatternWithMask(osd + PROTOKERNEL_MENU_OFFSET, 0x100000, (uint8_t *)patternDrawMenuItem_Proto, (uint8_t *)patternDrawMenuItem_Proto_mask,
+                            sizeof(patternDrawMenuItem_Proto));
+  if (!ptr)
+    return;
+  pSelItem = (uint32_t)ptr;
 
-    resetModules();
+  ptr = findPatternWithMask(ptr + 0x18, 0x100, (uint8_t *)patternDrawMenuItem_Proto, (uint8_t *)patternDrawMenuItem_Proto_mask,
+                            sizeof(patternDrawMenuItem_Proto));
+  if (!ptr)
+    return;
+  pUnselItem = (uint32_t)ptr;
 
-    // Execute the OSD unpacker. If the above patching was successful it will
-    // call the patchExecuteOSDSYS() function after unpacking.
-    ExecPS2((void *)exec.epc, (void *)exec.gp, 0, NULL);
-    Exit(-1);
-  }
+  tmp = _lw(pSelItem + 0x10); // get the OSD's DrawMenuItem function pointer
+  tmp &= 0x03ffffff;
+  tmp <<= 2;
+  DrawMenuItem = (void *)tmp;
+  DrawMenuItemStringPtr = &drawMenuItemProtokernel;
+
+  tmp = 0x0c000000;
+  tmp |= ((uint32_t)drawMenuItemSelectedProtokernel >> 2);
+  _sw(tmp, pSelItem + 0x10); // overwrite the function call for selected item
+
+  tmp = 0x0c000000;
+  tmp |= ((uint32_t)drawMenuItemUnselectedProtokernel >> 2);
+  _sw(tmp, pUnselItem + 0x10); // overwrite the function call for unselected item
+}
+
+// An array that stores what function to call for each disc type.
+// Protokernels:
+// uint32_t *discLaunchHandlers[6] = {
+//    reboot,					      // perform LoadExecPS2(NULL, 0, NULL)
+//    do_nothing,				    // none (return 1)
+//    exec_ps2_game_disc,		// PS2 game DVD
+//    exec_ps2_game_disc,		// PS2 game CD
+//    exec_ps1_game_disc,		// PS1 game CD
+//    exec_dvdv_disc			  // DVD Video
+//}
+// Patches the disc launch handlers to load discs with the launcher
+void patchDiscLaunchProtokernel(uint8_t *osd) {
+  uint8_t *ptr;
+  uint32_t tmp, pFn;
+  static uint32_t *discLaunchHandlers = NULL;
+
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternExecuteDiscProto, (uint8_t *)patternExecuteDiscProto_mask,
+                            sizeof(patternExecuteDiscProto));
+  if (!ptr)
+    return;
+
+  pFn = (uint32_t)ptr;
+
+  tmp = _lw(pFn + 28) << 16;
+  tmp += (signed short)(_lw(pFn + 36) & 0xffff);
+  discLaunchHandlers = (uint32_t *)tmp;
+
+  discLaunchHandlers[2] = (uint32_t)launchDisc; // Overwrite protokernel PS2 DVD function pointer
+  discLaunchHandlers[3] = (uint32_t)launchDisc; // Overwrite protokernel PS2 CD function pointer
+  discLaunchHandlers[4] = (uint32_t)launchDisc; // Overwrite protokernel PS1 function pointer
+}
+
+// Finds some drawing functions. Unused.
+void patchMenuButtonPanelProtokernel(uint8_t *osd) {
+  uint8_t *ptr = findPatternWithMask(osd + PROTOKERNEL_MENU_OFFSET, 0x100000, (uint8_t *)patternDrawButtonPanel_2_Proto,
+                                     (uint8_t *)patternDrawButtonPanel_2_Proto_mask, sizeof(patternDrawButtonPanel_2_Proto));
+  if (!ptr)
+    return;
+
+  uint8_t *ptr2 = findPatternWithMask(ptr, 0x100, (uint8_t *)patternDrawButtonPanel_3_Proto, (uint8_t *)patternDrawButtonPanel_3_Proto_mask,
+                                      sizeof(patternDrawButtonPanel_3_Proto));
+  if (!ptr2)
+    return;
+
+  uint32_t tmp = _lw((uint32_t)ptr + 0x30);
+  tmp &= 0x03ffffff;
+  tmp <<= 2;
+  DrawIcon = (void *)tmp;
+
+  tmp = _lw((uint32_t)ptr2 + 0x50);
+  tmp &= 0x03ffffff;
+  tmp <<= 2;
+  DrawNonSelectableItem = (void *)tmp;
 }

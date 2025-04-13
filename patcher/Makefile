@@ -13,9 +13,9 @@ EE_BIN = patcher_unc.elf
 EE_INCS = -I../common -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include -I$(PS2SDK)/sbv/include -Iinclude -I$(PS2SDK)/ports/include
 
 EE_LINKFILE = linkfile
-EE_LIBS = -lpatches
+EE_LIBS = -lpatches -ldebug
 
-EE_OBJS = main.o settings.o init.o loader.o fmcb_patches.o osdmenu_patches.o
+EE_OBJS = main.o settings.o init.o loader.o patches_common.o patches_fmcb.o patches_osdmenu.o
 
 # C compiler flags
 EE_CFLAGS := -D_EE -O2 -G0 -Wall $(EE_CFLAGS) -DGIT_VERSION="\"${GIT_VERSION}\""

@@ -2,9 +2,6 @@
 
 Free McBoot 1.8 OSDSYS patches ported to modern PS2SDK with some useful additions.  
 
-Tested on SCPH-39000, SCPH-70000 and SCPH-77000.  
-Will not work on "protokernel" systems (SCPH-10000, SCPH-15000) and possibly SCPH-18000 and SCPH-50009.
-
 ## Usage
 
 1. Copy `patcher.elf` and `launcher.elf` to `mc?:/BOOT/`  
@@ -22,6 +19,7 @@ Will not work on "protokernel" systems (SCPH-10000, SCPH-15000) and possibly SCP
 - CD/DVD support was extended to support skipping PS2LOGO, mounting VMCs on MMCE devices, showing visual GameID for PixelFX devices and booting DKWDRV for PS1 discs
 - "Unlimited" number of paths for each entry
 - Support for 1080i and 480p (as line-doubled 240p) video modes
+- Support for "protokernel" systems (SCPH-10000, SCPH-15000) ported from Free McBoot 1.9 by reverse-engineering
 
 Due to memory limitations and the need to support more devices, the original FMCB launcher was split into two parts: patcher and launcher.
 
@@ -29,15 +27,20 @@ Due to memory limitations and the need to support more devices, the original FMC
 
 This is a slimmed-down and refactored version of OSDSYS patches from FMCB 1.8 for modern PS2SDK with some new patches sprinkled in.  
 It reads settings from `mc?:/SYS-CONF/OSDMENU.CNF` and patches the `rom0:OSDSYS` binary with the following patches:
-- Custom OSDSYS menu entries
+- Custom OSDSYS menu with up to 255 entries
 - Infinite scrolling
 - Custom button prompts and menu header
 - Automatic disc launch bypass
-- Force GS video mode to PAL, NTSC, 1080i or line-doubled 480p.  
+- Force GS video mode to PAL, NTSC, 1080i or line-doubled 480p (with half the vertical resolution).  
   Due to how to OSDSYS renders everything, "true" 480p can't be implemented easily
 - HDD update check bypass
 - Override PS1 and PS2 disc launch functions with custom code that starts the launcher
 - Additional system information in version submenu (Video mode, ROM version, EE, GS and MechaCon revision)
+
+Patches not supported on protokernel systems:
+- Automatic disc launch bypass
+- Custom button prompts
+- PAL video mode
 
 See the list for supported `OSDMENU.CNF` options [here](#freemcbcnf).  
 For every menu item and disc launch, it starts the launcher from `mc?:/BOOT/launcher.elf` and passes the menu index to it.
@@ -101,6 +104,14 @@ arg=-testarg2
 ## OSDMENU.CNF
 
 Most of `OSDMENU.CNF` settings are directly compatible with those from FMCB 1.8 `FREEMCB.CNF`.
+
+### Character limits
+
+OSDMenu supports up to 255 custom menu entries, each up to 79 characters long.  
+Note that left and right cursors are limited to 19 characters and top and bottom delimiters are limited to 79 characters.  
+Launcher and DKWDRV paths are limited to 49 characters.
+
+### Configuration options
 
 1. `OSDSYS_video_mode` — force OSDSYS mode. Valid values are `AUTO`, `PAL`, `NTSC`, `480p` or `1080i`
 2. `hacked_OSDSYS` — enables or disables OSDSYS patches

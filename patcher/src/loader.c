@@ -1,6 +1,6 @@
-#include "fmcb_patches.h"
+#include "patches_common.h"
 #include "init.h"
-#include "osdmenu_patches.h"
+#include "patches_osdmenu.h"
 #include "settings.h"
 #include "splash.h"
 #include <kernel.h>
@@ -11,15 +11,26 @@
 
 // Executes selected item by passing it to the launcher
 void launchItem(char *item) {
-  if (!strcmp(item, "OSDSYS")) {
-    // Do nothing
-    return;
+  DisableIntc(3);
+  DisableIntc(2);
+
+  // SIF operations do not work on Protokernels
+  // without terminating all other threads
+  uint32_t tID = GetThreadId();
+  ChangeThreadPriority(tID, 0);
+  CancelWakeupThread(tID);
+  for (int i = 0; i < 0x100; i++) {
+    if (i != tID) {
+      TerminateThread(i);
+      DeleteThread(i);
+    }
   }
 
   restoreGSVideoMode();
+  deinitOSDSYS();
 
-  DisableIntc(3);
-  DisableIntc(2);
+  // Reinitialize DMAC, VU0/1, VIF0/1, GIF, IPU
+  ResetEE(0x7F);
 
   // Reinitialize IOP to a known state
   initModules();
@@ -28,15 +39,12 @@ void launchItem(char *item) {
   FlushCache(0);
   FlushCache(2);
 
-  if (pCNF != NULL)
-    free(pCNF);
-
   // Build argv for the launcher
   char **argv;
   int argc;
   if (strcmp(item, "cdrom")) {
     argv = malloc(2 * sizeof(char *));
-    argv[0] = strdup(settings.launcherPath);
+    argv[0] = settings.launcherPath;
     argv[1] = strdup(item);
     argc = 2;
   } else {
@@ -44,12 +52,12 @@ void launchItem(char *item) {
     argv = malloc(5 * sizeof(char *));
     argv[0] = settings.launcherPath;
     argv[1] = strdup(item);
-    argv[2] = (settings.skipPS2LOGO) ? "-nologo" : "";
-    argv[3] = (!settings.disableGameID) ? "" : "-nogameid";
+    argv[2] = (settings.patcherFlags & FLAG_SKIP_PS2_LOGO) ? "-nologo" : "";
+    argv[3] = (!(settings.patcherFlags & FLAG_DISABLE_GAMEID)) ? "" : "-nogameid";
     argc = 4;
-    if (settings.useDKWDRV) {
-      if (!settings.dkwdrvPath)
-        argv[4] = (settings.useDKWDRV) ? "-dkwdrv" : "";
+    if (settings.patcherFlags & FLAG_USE_DKWDRV) {
+      if (settings.dkwdrvPath[0] == '\0')
+        argv[4] = "-dkwdrv";
       else {
         argv[4] = malloc(sizeof("-dkwdrv") + strlen(settings.dkwdrvPath) + 1);
         strcat(argv[4], "-dkwdrv=");
@@ -59,22 +67,18 @@ void launchItem(char *item) {
     }
   }
 
-  // Wipe user memory and writeback data cache before loading the ELF
-  wipeUserMem();
-  FlushCache(0);
-
   static t_ExecData elfdata;
   elfdata.epc = 0;
 
   SifLoadFileInit();
   int ret = SifLoadElf(argv[0], &elfdata);
   SifLoadFileExit();
+  sceSifExitRpc();
   if (ret == 0 && elfdata.epc != 0) {
     FlushCache(0);
     FlushCache(2);
     ExecPS2((void *)elfdata.epc, (void *)elfdata.gp, argc, argv);
   }
-  sceSifExitRpc();
   Exit(-1);
 }
 

@@ -1,16 +1,11 @@
 #include "settings.h"
 #include "defaults.h"
+#include "gs.h"
 #include <stdlib.h>
 #include <string.h>
 #define NEWLIB_PORT_AWARE
 #include <fileio.h>
 
-// If defined, ensures that CNF content loads at 0x01f00000 leaving sufficient space for big CNF files
-// If we don't do this, memory will be allocated just after the loader, something like 0x000ecb00
-// leading to leave unsufficient space for big cnf files since OSDSYS needs to load at 0x00100000
-#define DUMMY_MALLOC
-
-char *pCNF = NULL;
 PatcherSettings settings;
 
 // Defined in common/defaults.h
@@ -93,22 +88,7 @@ int loadConfig(void) {
   size_t cnfSize = fioLseek(fd, 0, FIO_SEEK_END);
   fioLseek(fd, 0, FIO_SEEK_SET);
 
-#ifndef DUMMY_MALLOC
-  pCNF = (char *)malloc(cnfSize);
-#else
-  char *dummyPtr = NULL;
-  dummyPtr = (char *)malloc(32);
-  uint32_t dummySZ = 0x01f00000 - (uint32_t)(dummyPtr)-16;
-  free(dummyPtr);
-  dummyPtr = (char *)malloc(dummySZ);
-  pCNF = (char *)malloc(cnfSize);
-  // printf("dummySZ: %08x\n", (uint32_t)dummySZ);
-  // printf("dummyPtr: %08x\n", (uint32_t)dummyPtr);
-  // printf("pCNF: %08lx\n", (uint32_t)pCNF);
-
-  if (dummyPtr != NULL)
-    free(dummyPtr);
-#endif
+  char *pCNF = (char *)malloc(cnfSize);
 
   char *cnfPos = pCNF;
   if (cnfPos == NULL) {
@@ -124,18 +104,6 @@ int loadConfig(void) {
   char valueBuf[4];
   int i, j;
   while (getCNFString(&cnfPos, &name, &value)) {
-    if (!strcmp(name, "OSDSYS_video_mode")) {
-      settings.videoMode = value;
-      continue;
-    }
-    if (!strcmp(name, "hacked_OSDSYS")) {
-      settings.hackedOSDSYS = atoi(value);
-      continue;
-    }
-    if (!strcmp(name, "OSDSYS_scroll_menu")) {
-      settings.scrollMenu = atoi(value);
-      continue;
-    }
     if (!strcmp(name, "OSDSYS_menu_x")) {
       settings.menuX = atoi(value);
       continue;
@@ -169,35 +137,23 @@ int loadConfig(void) {
       continue;
     }
     if (!strcmp(name, "OSDSYS_left_cursor")) {
-      settings.leftCursor = value;
+      strncpy(settings.leftCursor, value, (sizeof(settings.leftCursor) / sizeof(char)) - 1);
       continue;
     }
     if (!strcmp(name, "OSDSYS_right_cursor")) {
-      settings.rightCursor = value;
+      strncpy(settings.rightCursor, value, (sizeof(settings.rightCursor) / sizeof(char)) - 1);
       continue;
     }
     if (!strcmp(name, "OSDSYS_menu_top_delimiter")) {
-      settings.menuDelimiterTop = value;
+      strncpy(settings.menuDelimiterTop, value, (sizeof(settings.menuDelimiterTop) / sizeof(char)) - 1);
       continue;
     }
     if (!strcmp(name, "OSDSYS_menu_bottom_delimiter")) {
-      settings.menuDelimiterBottom = value;
+      strncpy(settings.menuDelimiterBottom, value, (sizeof(settings.menuDelimiterBottom) / sizeof(char)) - 1);
       continue;
     }
     if (!strcmp(name, "OSDSYS_num_displayed_items")) {
       settings.displayedItems = atoi(value);
-      continue;
-    }
-    if (!strcmp(name, "OSDSYS_Skip_Disc")) {
-      settings.skipDisc = atoi(value);
-      continue;
-    }
-    if (!strcmp(name, "OSDSYS_Skip_Logo")) {
-      settings.skipLogo = atoi(value);
-      continue;
-    }
-    if (!strcmp(name, "OSDSYS_Inner_Browser")) {
-      settings.goToInnerBrowser = atoi(value);
       continue;
     }
     if (!strcmp(name, "OSDSYS_selected_color")) {
@@ -220,43 +176,79 @@ int loadConfig(void) {
       }
       continue;
     }
-    if (!strncmp(name, "name_OSDSYS_ITEM_", 17)) {
+    if (!strncmp(name, "name_OSDSYS_ITEM_", 17) && (strlen(value) > 0)) {
+      // Process only non-empty values
       j = atoi(&name[17]);
-      if ((strlen(value) > 0)) {
-        // Ignore empty values
-        settings.menuItemName[settings.menuItemCount] = value;
-        settings.menuItemIdx[settings.menuItemCount] = j;
-        settings.menuItemCount++;
-      }
+      strncpy(settings.menuItemName[settings.menuItemCount], value, NAME_LEN - 1);
+      settings.menuItemIdx[settings.menuItemCount] = j;
+      settings.menuItemCount++;
       continue;
     }
     if (!strcmp(name, "path_LAUNCHER_ELF")) {
       if (strlen(value) < 4 || strncmp(value, "mc", 2))
         continue; // Accept only memory card paths
 
-      settings.launcherPath = value;
+      strncpy(settings.launcherPath, value, (sizeof(settings.launcherPath) / sizeof(char)) - 1);
       continue;
     }
     if (!strcmp(name, "path_DKWDRV_ELF")) {
       if (strlen(value) < 4 || strncmp(value, "mc", 2))
         continue; // Accept only memory card paths
 
-      settings.dkwdrvPath = value;
+      strncpy(settings.dkwdrvPath, value, (sizeof(settings.dkwdrvPath) / sizeof(char)) - 1);
       continue;
     }
-    if (!strcmp(name, "cdrom_skip_ps2logo")) {
-      settings.skipPS2LOGO = atoi(value);
+    if (!strcmp(name, "OSDSYS_video_mode")) {
+      if (!strcmp(value, "AUTO"))
+        settings.videoMode = 0;
+      else if (!strcmp(value, "NTSC"))
+        settings.videoMode = GS_MODE_NTSC;
+      else if (!strcmp(value, "PAL"))
+        settings.videoMode = GS_MODE_PAL;
+      else if (!strcmp(value, "480p"))
+        settings.videoMode = GS_MODE_DTV_480P;
+      else if (!strcmp(value, "1080i"))
+        settings.videoMode = GS_MODE_DTV_1080I;
+
       continue;
     }
-    if (!strcmp(name, "cdrom_disable_gameid")) {
-      settings.disableGameID = atoi(value);
+    if (!strcmp(name, "hacked_OSDSYS") && atoi(value)) {
+      settings.patcherFlags |= FLAG_CUSTOM_MENU;
       continue;
     }
-    if (!strcmp(name, "cdrom_use_dkwdrv")) {
-      settings.useDKWDRV = atoi(value);
+    if (!strcmp(name, "OSDSYS_scroll_menu") && atoi(value)) {
+      settings.patcherFlags |= FLAG_SCROLL_MENU;
+      continue;
+    }
+    if (!strcmp(name, "OSDSYS_Skip_Disc") && atoi(value)) {
+      settings.patcherFlags |= FLAG_SKIP_DISC;
+      continue;
+    }
+    if (!strcmp(name, "OSDSYS_Skip_Logo") && atoi(value)) {
+      settings.patcherFlags |= FLAG_SKIP_SCE_LOGO;
+      continue;
+    }
+    if (!strcmp(name, "OSDSYS_Inner_Browser") && atoi(value)) {
+      settings.patcherFlags |= FLAG_BOOT_BROWSER;
+      continue;
+    }
+    if (!strcmp(name, "cdrom_skip_ps2logo") && atoi(value)) {
+      settings.patcherFlags |= FLAG_SKIP_PS2_LOGO;
+      continue;
+    }
+    if (!strcmp(name, "cdrom_disable_gameid") && atoi(value)) {
+      settings.patcherFlags |= FLAG_DISABLE_GAMEID;
+      continue;
+    }
+    if (!strcmp(name, "cdrom_use_dkwdrv") && atoi(value)) {
+      settings.patcherFlags |= FLAG_USE_DKWDRV;
       continue;
     }
   }
+
+  if (pCNF != NULL)
+    free(pCNF);
+
   return 0;
 }
 
@@ -274,12 +266,8 @@ void initVariables() {
 // Loads defaults
 void initConfig(void) {
   settings.mcSlot = 0;
-  settings.hackedOSDSYS = 0;
-  settings.skipDisc = 0;
-  settings.skipLogo = 1;
-  settings.goToInnerBrowser = 0;
-  settings.scrollMenu = 1;
-  settings.videoMode = "AUTO";
+  settings.patcherFlags = FLAG_CUSTOM_MENU | FLAG_SKIP_SCE_LOGO | FLAG_SKIP_DISC;
+  settings.videoMode = 0;
   settings.menuX = 320;
   settings.menuY = 110;
   settings.enterX = 30;
@@ -288,10 +276,10 @@ void initConfig(void) {
   settings.versionY = -1;
   settings.cursorMaxVelocity = 1000;
   settings.cursorAcceleration = 100;
-  settings.leftCursor = ">>";
-  settings.rightCursor = "<<";
-  settings.menuDelimiterTop = "------=/\\=------";
-  settings.menuDelimiterBottom = "------=\\/=------";
+  settings.leftCursor[0] = '\0';
+  settings.rightCursor[0] = '\0';
+  settings.menuDelimiterTop[0] = '\0';
+  settings.menuDelimiterBottom[0] = '\0';
   settings.colorSelected[0] = 0x10;
   settings.colorSelected[1] = 0x80;
   settings.colorSelected[2] = 0xe0;
@@ -301,17 +289,13 @@ void initConfig(void) {
   settings.colorUnselected[2] = 0x33;
   settings.colorUnselected[3] = 0x80;
   settings.displayedItems = 7;
-  for (int i = 0; i < NEWITEMS; i++) {
-    settings.menuItemName[i] = NULL;
+  for (int i = 0; i < CUSTOM_ITEMS; i++) {
+    settings.menuItemName[i][0] = '\0';
     settings.menuItemIdx[i] = 0;
   }
   settings.menuItemCount = 0;
-  settings.launcherPath = launcherPath;
-  settings.dkwdrvPath = NULL; // Can be null
-  settings.skipPS2LOGO = 1;
-  settings.disableGameID = 0;
-  settings.useDKWDRV = 0;
-
+  strcpy(settings.launcherPath, launcherPath);
+  settings.dkwdrvPath[0] = '\0'; // Can be null
   settings.romver[0] = '\0';
   initVariables();
 }
