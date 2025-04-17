@@ -36,11 +36,13 @@ It reads settings from `mc?:/SYS-CONF/OSDMENU.CNF` and patches the `rom0:OSDSYS`
 - HDD update check bypass
 - Override PS1 and PS2 disc launch functions with custom code that starts the launcher
 - Additional system information in version submenu (Video mode, ROM version, EE, GS and MechaCon revision)
+- Launch SAS-compatible applications from the memory card browser if `title.cfg` exists in the directory (see [config handler](#config-handler))
 
 Patches not supported on protokernel systems:
 - Automatic disc launch bypass
 - Custom button prompts
 - PAL video mode
+- Memory card browser might not work reliably on ROM 1.00 and 1.01, the console might hang when trying to "Enter" an entry with no `title.cfg`.
 
 See the list for supported `OSDMENU.CNF` options [here](#freemcbcnf).  
 For every menu item and disc launch, it starts the launcher from `mc?:/BOOT/launcher.elf` and passes the menu index to it.
@@ -86,13 +88,20 @@ searches for `path?_OSDSYS_ITEM_<idx>` and `arg_OSDSYS_ITEM_<idx>` entries and a
 
 Respects `cdrom_skip_ps2logo`, `cdrom_disable_gameid` and `cdrom_use_dkwdrv` for `cdrom` paths.
 
-### Quickboot support
+### Config handler
+When the launcher receives a path that ends with `.CNF`, `.cnf`, `.CFG` or `.cfg`,
+it will run the quickboot handler using this file.
+
+Config file can be located at any device as long as the device mountpoint is one of the listed above.
+
+### Quickboot handler
 When the launcher is started without any arguments, it tries to open `<ELF file name>.CNF`
 file at the current working directory
 and attempts to launch every path in order.
 
-CNF syntax example:
+Quickboot file syntax example:
 ```ini
+boot=boot.elf
 path=mmce?:/apps/wle.elf
 path=mmce?:/apps/wle2.elf
 path=ata:/apps/wle.elf
@@ -100,6 +109,10 @@ path=mc?:/BOOT/BOOT.ELF
 arg=-testarg
 arg=-testarg2
 ```
+
+`boot` — path relative to the config file  
+`path` — absolute paths  
+`arg` — arguments that will be passed to the ELF file 
 
 ## OSDMENU.CNF
 
@@ -145,6 +158,7 @@ New to this launcher:
 27. `cdrom_use_dkwdrv` — enables or disables launching DKWDRV for PS1 discs
 28. `path_LAUNCHER_ELF` — custom path to launcher.elf. The path MUST be on the memory card
 29. `path_DKWDRV_ELF` — custom path to DKWDRV.ELF. The path MUST be on the memory card
+30. `OSDSYS_Browser_Launcher` — enables/disables patch for launching applications from the Browser 
 
 ## Credits
 
