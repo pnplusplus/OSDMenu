@@ -20,6 +20,7 @@ Free McBoot 1.8 OSDSYS patches ported to modern PS2SDK with some useful addition
 - "Unlimited" number of paths for each entry
 - Support for 1080i and 480p (as line-doubled 240p) video modes
 - Support for "protokernel" systems (SCPH-10000, SCPH-15000) ported from Free McBoot 1.9 by reverse-engineering
+- Support for launching applications from the memory card browser
 
 Due to memory limitations and the need to support more devices, the original FMCB launcher was split into two parts: patcher and launcher.
 
@@ -36,13 +37,14 @@ It reads settings from `mc?:/SYS-CONF/OSDMENU.CNF` and patches the `rom0:OSDSYS`
 - HDD update check bypass
 - Override PS1 and PS2 disc launch functions with custom code that starts the launcher
 - Additional system information in version submenu (Video mode, ROM version, EE, GS and MechaCon revision)
-- Launch SAS-compatible applications from the memory card browser if `title.cfg` exists in the directory (see [config handler](#config-handler))
+- Launch SAS-compatible applications from the memory card browser if `title.cfg` exists in the directory (see [config handler](#config-handler))  
+  This patch swaps around the "Enter" and "Options" menus and substitutes file properties submenu with the launcher.
 
-Patches not supported on protokernel systems:
+Patches not supported/limited on protokernel systems:
 - Automatic disc launch bypass
 - Custom button prompts
 - PAL video mode
-- Memory card browser might not work reliably on ROM 1.00 and 1.01, the console might hang when trying to "Enter" an entry with no `title.cfg`.
+- Memory card browser patch might not work reliably on ROMs 1.00 and 1.01, the console might hang when trying to "Enter" an entry with no `title.cfg`.
 
 See the list for supported `OSDMENU.CNF` options [here](#freemcbcnf).  
 For every menu item and disc launch, it starts the launcher from `mc?:/BOOT/launcher.elf` and passes the menu index to it.
