@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static uint32_t osdMenu[4 + CUSTOM_ITEMS * 2];
+static uint32_t osdMenu[4 + CUSTOM_ITEMS * 3];
 
 struct OSDMenuInfo {
   uint32_t unknown1;

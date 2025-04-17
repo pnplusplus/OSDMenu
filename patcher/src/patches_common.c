@@ -52,6 +52,10 @@ void patchExecuteOSDSYS(void *epc, void *gp) {
     patchMenuButtonPanel((uint8_t *)epc);
   }
 
+  // Apply browser application launch patch
+  if (settings.patcherFlags & FLAG_BROWSER_LAUNCHER)
+    patchBrowserApplicationLaunch((uint8_t *)epc, 0);
+
   // Apply version menu patch
   patchVersionInfo((uint8_t *)epc);
 
@@ -71,6 +75,7 @@ void patchExecuteOSDSYS(void *epc, void *gp) {
     patchSkipDisc((uint8_t *)epc);
 
   // Replace function calls with no-ops?
+  // Not sure what it does, but leaving it here just in case
   if (_lw(0x202d78) == 0x0c080898 && _lw(0x202b40) == 0x0c080934 && _lw(0x20ffa0) == 0x0c080934) {
     _sw(0x00000000, 0x202d78); // replace jal 0x0080898 with nop
     _sw(0x24020000, 0x202b40); // replace jal 0x0080934 with addiu 0, v0, 0
@@ -158,6 +163,10 @@ void applyProtokernelPatches() {
     patchMenuDrawProtokernel((uint8_t *)protoEPC);
     patchMenuInfiniteScrolling((uint8_t *)protoEPC, 1);
   }
+
+  // Apply browser application launch patch
+  if (settings.patcherFlags & FLAG_BROWSER_LAUNCHER)
+    patchBrowserApplicationLaunch((uint8_t *)protoEPC, 1);
 
   // Apply version menu patch
   patchVersionInfoProtokernel((uint8_t *)protoEPC);

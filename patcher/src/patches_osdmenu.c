@@ -1,4 +1,5 @@
 
+#include "loader.h"
 #include "patches_common.h"
 #include "patterns_osdmenu.h"
 #include "settings.h"
@@ -368,6 +369,116 @@ void restoreGSVideoMode() {
 
   // Restore the original syscall handler
   SetSyscall(0x2, origSetGsCrt);
+}
+
+//
+// Browser application launch patch
+// Swaps file properties and Copy/Delete menus around and launches an app when pressing Enter
+// if a title.cfg file is present in the icon directory
+//
+
+static void (*browserDirSubmenuInitView)(uint32_t *iconProperties, uint8_t fileSubmenuType) = NULL;
+
+// Using SCE functions here is important.
+static int (*sceOpen)(const char *path, int flags) = NULL;
+static int (*sceClose)(int fd) = NULL;
+
+int16_t selectedMCOffset = 0; // selected MC index offset from $gp, signed
+
+void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubmenuType) {
+  // Get memory card number by reading address relative to $gp
+  int mcNumber;
+  asm volatile("addu $t0, $gp, %1\n\t" // Add the offset to the gp register
+               "lw %0, 0($t0)"         // Load the word at the offset
+               : "=r"(mcNumber)
+               : "r"((int32_t)selectedMCOffset) // Cast the type to avoid GCC using lhu instead of lh
+               : "$t0");
+
+  if (fileSubmenuType == 1) { // Swap functions around so "Option" button triggers the Copy/Delete menu
+    browserDirSubmenuInitView(iconProperties, 0);
+    return;
+  }
+
+  // Translate the memory card number
+  // The memory card number OSDSYS uses equals 2 for mc0 and 6 for mc1 (3 for mc1 on protokernels).
+  switch (mcNumber) {
+  case 6: // mc1
+    mcNumber -= 3;
+  case 3:
+  case 2: // mc0
+    mcNumber = mcNumber - 2;
+
+    // Find the path in icon properties starting from offset 0x160
+    char *stroffset = (char *)iconProperties + 0x160;
+    while (*stroffset != '/')
+      stroffset++;
+
+    // Assemble the path
+    char buf[100];
+    buf[0] = '\0';
+    strcat(buf, "mc?:");
+    strcat(buf, (char *)((uint32_t)stroffset));
+    strcat(buf, "/title.cfg");
+    buf[2] = mcNumber + '0';
+
+    // Check if title.cfg exists in the icon directory
+    int fd = sceOpen(buf, 0x1);
+    if (fd >= 0) {
+      sceClose(fd);
+      launchItem(buf);
+      __builtin_trap();
+    }
+  }
+
+  // Otherwise, just show file properties
+  browserDirSubmenuInitView(iconProperties, 1);
+}
+
+// Browser application launch patch
+void patchBrowserApplicationLaunch(uint8_t *osd, int isProtokernel) {
+  // Protokernel browser code starts at ~0x700000
+  uint32_t osdOffset = (isProtokernel) ? (PROTOKERNEL_MENU_OFFSET + 0x100000) : 0;
+
+  // Get SCE function pointers
+  uint8_t *ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternSCEopen, (uint8_t *)patternSCEopen_mask, sizeof(patternSCEopen));
+  if (!ptr || ((_lw((uint32_t)ptr - 3 * 4) & 0xffff0000) != 0x27bd0000))
+    return;
+
+  sceOpen = (void *)((uint32_t)ptr - 3 * 4);
+
+  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternSCEclose, (uint8_t *)patternSCEclose_mask, sizeof(patternSCEclose));
+  if (!ptr)
+    return;
+
+  sceClose = (void *)ptr;
+
+  // Find the target function
+  ptr = findPatternWithMask(osd + osdOffset, 0x100000, (uint8_t *)patternBrowserFileMenuInit, (uint8_t *)patternBrowserFileMenuInit_mask,
+                            sizeof(patternBrowserFileMenuInit));
+
+  if (!ptr || ((_lw((uint32_t)ptr + 4 * 4) & 0xfc000000) != 0x0c000000))
+    return;
+
+  ptr += 4 * 4;
+
+  // Get the original function call and save the address
+  uint32_t tmp = _lw((uint32_t)ptr);
+  tmp &= 0x03ffffff;
+  tmp <<= 2;
+  browserDirSubmenuInitView = (void *)tmp;
+
+  // Find the selected memory card offset
+  uint8_t *offset = findPatternWithMask((uint8_t *)browserDirSubmenuInitView, 0x500, (uint8_t *)patternBrowserSelectedMC,
+                                        (uint8_t *)patternBrowserSelectedMC_mask, sizeof(patternBrowserSelectedMC));
+  if (!offset)
+    return;
+
+  selectedMCOffset = _lw((uint32_t)offset) & 0xffff;
+
+  // Replace the original init function
+  tmp = 0x0c000000;
+  tmp |= ((uint32_t)browserDirSubmenuInitViewCustom >> 2);
+  _sw(tmp, (uint32_t)ptr); // jal browserDirSubmenuInitViewCustom
 }
 
 //

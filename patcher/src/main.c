@@ -41,11 +41,8 @@ int probeLauncher() {
 
   return 0;
 }
-#include "loader.h"
 
 int main(int argc, char *argv[]) {
-  void InitTLBFunctions(void);
-  void InitTLB(void);
   // Clear memory
   wipeUserMem();
 

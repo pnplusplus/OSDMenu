@@ -13,7 +13,7 @@ EE_BIN = patcher_unc.elf
 EE_INCS = -I../common -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include -I$(PS2SDK)/sbv/include -Iinclude -I$(PS2SDK)/ports/include
 
 EE_LINKFILE = linkfile
-EE_LIBS = -lpatches -ldebug
+EE_LIBS = -lpatches
 
 EE_OBJS = main.o settings.o init.o loader.o patches_common.o patches_fmcb.o patches_osdmenu.o
 

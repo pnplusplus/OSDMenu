@@ -212,36 +212,67 @@ int loadConfig(void) {
 
       continue;
     }
-    if (!strcmp(name, "hacked_OSDSYS") && atoi(value)) {
-      settings.patcherFlags |= FLAG_CUSTOM_MENU;
+    if (!strcmp(name, "hacked_OSDSYS")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_CUSTOM_MENU;
+      else
+        settings.patcherFlags &= ~(FLAG_CUSTOM_MENU);
       continue;
     }
-    if (!strcmp(name, "OSDSYS_scroll_menu") && atoi(value)) {
-      settings.patcherFlags |= FLAG_SCROLL_MENU;
+    if (!strcmp(name, "OSDSYS_scroll_menu")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_SCROLL_MENU;
+      else
+        settings.patcherFlags &= ~(FLAG_SCROLL_MENU);
       continue;
     }
-    if (!strcmp(name, "OSDSYS_Skip_Disc") && atoi(value)) {
-      settings.patcherFlags |= FLAG_SKIP_DISC;
+    if (!strcmp(name, "OSDSYS_Skip_Disc")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_SKIP_DISC;
+      else
+        settings.patcherFlags &= ~(FLAG_SKIP_DISC);
       continue;
     }
-    if (!strcmp(name, "OSDSYS_Skip_Logo") && atoi(value)) {
-      settings.patcherFlags |= FLAG_SKIP_SCE_LOGO;
+    if (!strcmp(name, "OSDSYS_Skip_Logo")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_SKIP_SCE_LOGO;
+      else
+        settings.patcherFlags &= ~(FLAG_SKIP_SCE_LOGO);
       continue;
     }
-    if (!strcmp(name, "OSDSYS_Inner_Browser") && atoi(value)) {
-      settings.patcherFlags |= FLAG_BOOT_BROWSER;
+    if (!strcmp(name, "OSDSYS_Inner_Browser")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_BOOT_BROWSER;
+      else
+        settings.patcherFlags &= ~(FLAG_BOOT_BROWSER);
       continue;
     }
-    if (!strcmp(name, "cdrom_skip_ps2logo") && atoi(value)) {
-      settings.patcherFlags |= FLAG_SKIP_PS2_LOGO;
+    if (!strcmp(name, "OSDSYS_Browser_Launcher")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_BROWSER_LAUNCHER;
+      else
+        settings.patcherFlags &= ~(FLAG_BROWSER_LAUNCHER);
       continue;
     }
-    if (!strcmp(name, "cdrom_disable_gameid") && atoi(value)) {
-      settings.patcherFlags |= FLAG_DISABLE_GAMEID;
+    if (!strcmp(name, "cdrom_skip_ps2logo")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_SKIP_PS2_LOGO;
+      else
+        settings.patcherFlags &= ~(FLAG_SKIP_PS2_LOGO);
       continue;
     }
-    if (!strcmp(name, "cdrom_use_dkwdrv") && atoi(value)) {
-      settings.patcherFlags |= FLAG_USE_DKWDRV;
+    if (!strcmp(name, "cdrom_disable_gameid")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_DISABLE_GAMEID;
+      else
+        settings.patcherFlags &= ~(FLAG_DISABLE_GAMEID);
+      continue;
+    }
+    if (!strcmp(name, "cdrom_use_dkwdrv")) {
+      if (atoi(value))
+        settings.patcherFlags |= FLAG_USE_DKWDRV;
+      else
+        settings.patcherFlags &= ~(FLAG_USE_DKWDRV);
       continue;
     }
   }
@@ -266,7 +297,7 @@ void initVariables() {
 // Loads defaults
 void initConfig(void) {
   settings.mcSlot = 0;
-  settings.patcherFlags = FLAG_CUSTOM_MENU | FLAG_SKIP_SCE_LOGO | FLAG_SKIP_DISC;
+  settings.patcherFlags = FLAG_CUSTOM_MENU | FLAG_SCROLL_MENU | FLAG_SKIP_SCE_LOGO | FLAG_SKIP_DISC | FLAG_BROWSER_LAUNCHER;
   settings.videoMode = 0;
   settings.menuX = 320;
   settings.menuY = 110;

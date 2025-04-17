@@ -8,14 +8,15 @@
 #define NAME_LEN 80      // Max menu item length (incl. the string terminator)
 
 typedef enum {
-  FLAG_CUSTOM_MENU = (1 << 0),    // Apply menu patches
-  FLAG_SKIP_DISC = (1 << 1),      // Disable disc autolaunch
-  FLAG_SKIP_SCE_LOGO = (1 << 2),  // Skip SCE logo on boot
-  FLAG_BOOT_BROWSER = (1 << 3),   // Boot directly to MC browser
-  FLAG_SCROLL_MENU = (1 << 4),    // Enable infinite scrolling
-  FLAG_SKIP_PS2_LOGO = (1 << 5),  // Skip PS2LOGO when booting discs
-  FLAG_DISABLE_GAMEID = (1 << 6), // Disable PixelFX game ID
-  FLAG_USE_DKWDRV = (1 << 7),     // Use DKWDRV for PS1 discs
+  FLAG_CUSTOM_MENU = (1 << 0),      // Apply menu patches
+  FLAG_SKIP_DISC = (1 << 1),        // Disable disc autolaunch
+  FLAG_SKIP_SCE_LOGO = (1 << 2),    // Skip SCE logo on boot
+  FLAG_BOOT_BROWSER = (1 << 3),     // Boot directly to MC browser
+  FLAG_SCROLL_MENU = (1 << 4),      // Enable infinite scrolling
+  FLAG_SKIP_PS2_LOGO = (1 << 5),    // Skip PS2LOGO when booting discs
+  FLAG_DISABLE_GAMEID = (1 << 6),   // Disable PixelFX game ID
+  FLAG_USE_DKWDRV = (1 << 7),       // Use DKWDRV for PS1 discs
+  FLAG_BROWSER_LAUNCHER = (1 << 8), // Apply patches for launching applications from the Browser
 } PatcherFlags;
 
 // Patcher settings struct, contains all configurable patch settings and menu items
@@ -33,6 +34,7 @@ typedef struct {
   int displayedItems;                        // The number of menu items displayed, only for scroll menu
   int menuItemIdx[CUSTOM_ITEMS];             // Item index in the config file
   int menuItemCount;                         // Total number of valid menu items
+  uint16_t patcherFlags;                     // Patcher options
   char leftCursor[20];                       // The left cursor text, only for scroll menu
   char rightCursor[20];                      // The right cursor text, only for scroll menu
   char menuDelimiterTop[NAME_LEN];           // The top menu delimiter text, only for scroll menu
@@ -42,7 +44,6 @@ typedef struct {
   char dkwdrvPath[50];                       // Path to DKWDRV
   char romver[15];                           // ROMVER string, initialized before patching
   uint8_t mcSlot;                            // Memory card slot contaning currently loaded OSDMENU.CNF
-  uint8_t patcherFlags;                      // Patcher options
   GSVideoMode videoMode;                     // OSDSYS Video mode (0 for auto)
 } PatcherSettings;
 

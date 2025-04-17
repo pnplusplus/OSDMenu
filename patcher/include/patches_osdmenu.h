@@ -15,6 +15,9 @@ void patchGSVideoMode(uint8_t *osd, GSVideoMode outputMode);
 // Can be safely called even if GS video mode patch wasn't applied
 void restoreGSVideoMode();
 
+// Browser application launch patch
+void patchBrowserApplicationLaunch(uint8_t *osd, int isProtokernel);
+
 // Protokernel patches
 
 // Extends version menu with custom entries

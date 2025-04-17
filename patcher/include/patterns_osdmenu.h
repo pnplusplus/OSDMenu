@@ -69,6 +69,48 @@ static uint32_t patternCdApplySCmd[] = {
 };
 static uint32_t patternCdApplySCmd_mask[] = {0xfc000000, 0x00000000, 0xfc000000, 0xfc00ffff, 0x00000000, 0xfc000000};
 
+// Pattern for getting the address of the Browser file properties/Copy/Delete view init function
+// Seems to be consistent across all ROM versions, including protokernels
+static uint32_t patternBrowserFileMenuInit[] = {
+    0x27bdffe0, // addiu sp,sp,-0x20
+    0x30a500ff, // andi  a1,a1,0x00FF
+                // 0xffb00000, // sd s0,0x0000,sp // s0 contains current memory card index
+                // 0xffbf0010, // sd ra,0x0010,sp
+                // 0x0c000000, // jal browserDirSubmenuInitView <- target function
+};
+static uint32_t patternBrowserFileMenuInit_mask[] = {0xffffffff, 0xffffffff};
+
+// Pattern for getting the address of the currently selected memory card
+// Located in browserDirSubmenuInitView function
+static uint32_t patternBrowserSelectedMC[] = {
+  0x8f820000, // lw v0,0x0000,gp <-- address relative to $gp
+  0x2442fffe, // addiu v0,v0,-0x2
+  0x2c420000, // sltiu v0,v0,0x?
+};
+static uint32_t patternBrowserSelectedMC_mask[] = {0xffff0000,0xffffffff, 0xfffffff0};
+
+// Pattern for getting the address of the sceOpen function
+// Seems to be consistent across all ROM versions, including protokernels
+static uint32_t patternSCEopen[] = {
+    // 0x27bd???? // addiu sp,sp,0x???? --> function start
+    // 0x3c02???? // lui v0,0x????
+    // 0x3c03???? // lui v1,0x????
+    0xffb40050, // sd s4,0x0050,sp
+    0xffb30040, // sd s3,0x0040,sp
+    0x0060a02d, // daddu s4,v1,zero
+};
+static uint32_t patternSCEopen_mask[] = {0xffffffff, 0xffffffff, 0xffffffff};
+
+// Pattern for getting the address of the sceClose function
+// Seems to be consistent across all ROM versions, including protokernels
+static uint32_t patternSCEclose[] = {
+    0x27bdffa0, // addiu sp,sp,-0x70
+    0xffb30040, // sd    s3,0x0040,sp
+    0xffb10020, // sd    s1,0x0020,sp
+    0xffb00010, // sd    s0,0x0010,sp
+};
+static uint32_t patternSCEclose_mask[] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+
 //
 // Protokernel patterns
 //
