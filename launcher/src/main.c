@@ -22,6 +22,13 @@ int main(int argc, char *argv[]) {
   // Remove launcher path from arguments
   argc--;
   argv = &argv[1];
+  if (!argv[0])
+    fail("Invalid argv[0]");
+
+  char *p = strrchr(argv[0], '.');
+  if (p && (!strcmp(p, ".cfg") || !strcmp(p, ".CFG") || !strcmp(p, ".CNF") || !strcmp(p, ".cnf")))
+    // If argv[1] is a CNF/CFG file, try to load it
+    fail("Quickboot failed: %d", handleQuickboot(argv[0]));
 
 #ifdef FMCB
   if (!strncmp("fmcb", argv[0], 4)) {

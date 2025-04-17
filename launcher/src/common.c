@@ -11,6 +11,7 @@
 #include <string.h>
 
 static int isScreenInited = 0;
+char pathbuffer[PATH_MAX];
 
 void initScreen() {
   if (isScreenInited)
@@ -59,44 +60,54 @@ int tryFile(char *filepath) {
   return 0;
 }
 
-// Attempts to launch ELF from device and path in argv[0]
+// Attempts to launch ELF from device and path in path
 int launchPath(int argc, char *argv[]) {
   int ret = 0;
-  if (!strncmp("mc", argv[0], 2)) {
+  switch (guessDeviceType(argv[0])) {
+  case Device_MemoryCard:
     ret = handleMC(argc, argv);
+    break;
 #ifdef MMCE
-  } else if (!strncmp("mmce", argv[0], 4)) {
+  case Device_MMCE:
     ret = handleMMCE(argc, argv);
+    break;
 #endif
 #ifdef USB
-  } else if (!strncmp("mass", argv[0], 4) || !strncmp("usb", argv[0], 3)) {
+  case Device_USB:
     ret = handleBDM(Device_USB, argc, argv);
+    break;
 #endif
 #ifdef ATA
-  } else if (!strncmp("ata", argv[0], 3)) {
+  case Device_ATA:
     ret = handleBDM(Device_ATA, argc, argv);
+    break;
 #endif
 #ifdef MX4SIO
-  } else if (!strncmp("mx4sio", argv[0], 6)) {
+  case Device_MX4SIO:
     ret = handleBDM(Device_MX4SIO, argc, argv);
+    break;
 #endif
 #ifdef ILINK
-  } else if (!strncmp("ilink", argv[0], 5)) {
+  case Device_iLink:
     ret = handleBDM(Device_iLink, argc, argv);
+    break;
 #endif
 #ifdef UDPBD
-  } else if (!strncmp("udpbd", argv[0], 5)) {
+  case Device_UDPBD:
     ret = handleBDM(Device_UDPBD, argc, argv);
+    break;
 #endif
 #ifdef APA
-  } else if (!strncmp("hdd", argv[0], 3)) {
+  case Device_PFS:
     ret = handlePFS(argc, argv);
+    break;
 #endif
 #ifdef CDROM
-  } else if (!strncmp("cdrom", argv[0], 5)) {
+  case Device_CDROM:
     ret = handleCDROM(argc, argv);
+    break;
 #endif
-  } else {
+  default:
     return -ENODEV;
   }
 
@@ -138,4 +149,76 @@ void freeLinkedStr(linkedStr *lstr) {
   }
   free(lstr->str);
   free(lstr);
+}
+
+// Attempts to guess device type from path
+DeviceType guessDeviceType(char *path) {
+  if (!strncmp("mc", path, 2)) {
+    return Device_MemoryCard;
+#ifdef MMCE
+  } else if (!strncmp("mmce", path, 4)) {
+    return Device_MMCE;
+#endif
+#ifdef USB
+  } else if (!strncmp("mass", path, 4) || !strncmp("usb", path, 3)) {
+    return Device_USB;
+#endif
+#ifdef ATA
+  } else if (!strncmp("ata", path, 3)) {
+    return Device_ATA;
+#endif
+#ifdef MX4SIO
+  } else if (!strncmp("mx4sio", path, 6)) {
+    return Device_MX4SIO;
+#endif
+#ifdef ILINK
+  } else if (!strncmp("ilink", path, 5)) {
+    return Device_iLink;
+#endif
+#ifdef UDPBD
+  } else if (!strncmp("udpbd", path, 5)) {
+    return Device_UDPBD;
+#endif
+#ifdef APA
+  } else if (!strncmp("hdd", path, 3)) {
+    return Device_PFS;
+#endif
+#ifdef CDROM
+  } else if (!strncmp("cdrom", path, 5)) {
+    return Device_CDROM;
+  }
+#endif
+  return Device_None;
+}
+
+// Attempts to convert launcher-specific path into a valid device path
+char *normalizePath(char *path, DeviceType type) {
+  pathbuffer[0] = '\0';
+  switch (type) {
+  case Device_PFS:
+    strcat(pathbuffer, PFS_MOUNTPOINT "/");
+  case Device_MemoryCard:
+  case Device_MMCE:
+  case Device_CDROM:
+    strncat(pathbuffer, path, PATH_MAX - 6);
+    break;
+  // BDM
+  case Device_USB:
+  case Device_ATA:
+  case Device_MX4SIO:
+  case Device_iLink:
+  case Device_UDPBD:
+    // Get relative ELF path from argv[0]
+    path = strchr(path, ':');
+    if (!path)
+      return NULL;
+
+    path++;
+
+    strcpy(pathbuffer, BDM_MOUNTPOINT);
+    strncat(pathbuffer, path, PATH_MAX - sizeof(BDM_MOUNTPOINT));
+  default:
+    return NULL;
+  }
+  return pathbuffer;
 }

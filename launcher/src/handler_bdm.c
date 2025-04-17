@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-char bdmMountpoint[] = "mass?:";
+char bdmMountpoint[] = BDM_MOUNTPOINT;
 #define BDM_MAX_DEVICES 10
 
 // Launches ELF from BDM device
@@ -14,18 +14,10 @@ int handleBDM(DeviceType device, int argc, char *argv[]) {
   if ((argv[0] == 0) || (strlen(argv[0]) < 5))
     msg("BDM: invalid argument\n");
 
-  // Get relative ELF path from argv[0]
-  char *elfPath = argv[0];
-  elfPath = strchr(elfPath, ':');
-  if (!elfPath)
-    msg("BDM: no file path found\n");
-
-  elfPath++;
-
   // Build ELF path
-  char pathbuffer[PATH_MAX];
-  strcpy(pathbuffer, bdmMountpoint);
-  strncat(pathbuffer, elfPath, PATH_MAX - sizeof(bdmMountpoint));
+  char *elfPath = normalizePath(argv[0], device);
+  if (!elfPath)
+    return -ENODEV;
 
   // Initialize device modules
   int res = initModules(device);
@@ -38,7 +30,7 @@ int handleBDM(DeviceType device, int argc, char *argv[]) {
   for (int i = 0; i < BDM_MAX_DEVICES; i++) {
     // Build mountpoint path
     bdmMountpoint[4] = i + '0';
-    pathbuffer[4] = i + '0';
+    elfPath[4] = i + '0';
     while (delayAttempts != 0) {
       // Try to open the mountpoint to make sure the device exists
       res = open(bdmMountpoint, O_DIRECTORY | O_RDONLY);
@@ -47,7 +39,7 @@ int handleBDM(DeviceType device, int argc, char *argv[]) {
         close(res);
 
         // Jump to launch if file exists
-        if (!(res = tryFile(pathbuffer)))
+        if (!(res = tryFile(elfPath)))
           goto found;
         // Else, try next device
         break;
@@ -63,6 +55,6 @@ int handleBDM(DeviceType device, int argc, char *argv[]) {
   return -ENODEV;
 
 found:
-  argv[0] = pathbuffer;
+  argv[0] = elfPath;
   return LoadELFFromFile(argc, argv);
 }

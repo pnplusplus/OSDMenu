@@ -3,6 +3,9 @@
 
 #include <debug.h>
 
+#define BDM_MOUNTPOINT "mass?:"
+#define PFS_MOUNTPOINT "pfs0:"
+
 // Enum for supported devices
 typedef enum {
   Device_None = 0,
@@ -40,6 +43,12 @@ void fail(const char *str, ...);
 
 // Tests if file exists by opening it
 int tryFile(char *filepath);
+
+// Attempts to guess device type from path
+DeviceType guessDeviceType(char *path);
+
+// Attempts to convert launcher-specific path into path supported by PS2 modules
+char *normalizePath(char *path, DeviceType type);
 
 // Attempts to launch ELF from device and path in argv[0]
 int launchPath(int argc, char *argv[]);

@@ -7,26 +7,36 @@
 #include <string.h>
 
 int handleQuickboot(char *cnfPath) {
+  int res;
   char *ext = strrchr(cnfPath, '.');
-  if (!ext || ((strcmp(ext, ".ELF")) && (strcmp(ext, ".elf"))))
+  if (!ext)
     return -ENOENT;
 
-  // Replace .ELF extension with .CNF
-  ext[1] = 'C';
-  ext[2] = 'N';
-  ext[3] = 'F';
+  if (!strcmp(ext, ".ELF") || !strcmp(ext, ".elf")) {
+    // Replace .ELF extension with .CNF
+    ext[1] = 'C';
+    ext[2] = 'N';
+    ext[3] = 'F';
+    ext[4] = '\0';
+  }
+
+  DeviceType dtype = guessDeviceType(cnfPath);
+  if (dtype == Device_None)
+    return -ENODEV;
+
+  // Always reset IOP to a known state
+  if ((res = initModules(dtype)))
+    return res;
 
   // Open the config file
+  cnfPath = normalizePath(cnfPath, dtype);
+  if (!cnfPath)
+    return -ENOENT;
+
   FILE *file = fopen(cnfPath, "r");
   if (!file) {
-    int res;
-    // Init modules only if we have to
-    if ((res = initModules(Device_MemoryCard)))
-      return res;
-    else if (!(file = fopen(cnfPath, "r"))) {
-      msg("Quickboot: Failed to open %s\n", cnfPath);
-      return -ENOENT;
-    }
+    msg("Quickboot: Failed to open %s\n", cnfPath);
+    return -ENODEV;
   }
 
   // Temporary path and argument lists
@@ -35,7 +45,14 @@ int handleQuickboot(char *cnfPath) {
   int targetArgc = 1; // argv[0] is the ELF path
 
   char lineBuffer[PATH_MAX] = {0};
+  char relpathBuffer[PATH_MAX] = {0};
   char *valuePtr = NULL;
+
+  // Reuse cnfPath for the current working directory
+  ext = strrchr(cnfPath, '/');
+  if (ext)
+    *ext = '\0';
+
   while (fgets(lineBuffer, sizeof(lineBuffer), file)) { // fgets returns NULL if EOF or an error occurs
     // Find the start of the value
     valuePtr = strchr(lineBuffer, '=');
@@ -49,6 +66,14 @@ int handleQuickboot(char *cnfPath) {
     } while (isspace((int)*valuePtr));
     valuePtr[strcspn(valuePtr, "\r\n")] = '\0';
 
+    if (!strncmp(lineBuffer, "boot", 4) && ext) {
+      if (strlen(valuePtr) > 0) {
+        // Assemble full path
+        snprintf(relpathBuffer, PATH_MAX - 1, "%s/%s", cnfPath, valuePtr);
+        targetPaths = addStr(targetPaths, relpathBuffer);
+      }
+      continue;
+    }
     if (!strncmp(lineBuffer, "path", 4)) {
       if ((strlen(valuePtr) > 0))
         targetPaths = addStr(targetPaths, valuePtr);

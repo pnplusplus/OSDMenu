@@ -10,7 +10,6 @@
 #include <io_common.h>
 
 #define DELAY_ATTEMPTS 20
-#define PFS_MOUNTPOINT "pfs0:"
 
 // Loads ELF from APA-formatted HDD
 int handlePFS(int argc, char *argv[]) {
@@ -51,8 +50,9 @@ int handlePFS(int argc, char *argv[]) {
     return -ENODEV;
 
   // Build PFS path
-  char pathbuffer[PATH_MAX];
-  snprintf(pathbuffer, PATH_MAX - 1, "%s/%s", PFS_MOUNTPOINT, path);
+  char *elfPath = normalizePath(path, Device_PFS);
+  if (!elfPath)
+    return -ENODEV;
 
   // Mount the partition
   DPRINTF("Mounting %s to %s\n", argv[0], PFS_MOUNTPOINT);
@@ -60,7 +60,7 @@ int handlePFS(int argc, char *argv[]) {
     return -ENODEV;
 
   // Make sure file exists
-  if (tryFile(pathbuffer)) {
+  if (tryFile(elfPath)) {
     fileXioDevctl(PFS_MOUNTPOINT, PDIOC_CLOSEALL, NULL, 0, NULL, 0);
     fileXioSync(PFS_MOUNTPOINT, FXIO_WAIT);
     fileXioUmount(PFS_MOUNTPOINT);
@@ -68,8 +68,8 @@ int handlePFS(int argc, char *argv[]) {
   }
 
   // Build the path as 'hdd0:<partition name>:pfs:/<path to ELF>'
-  snprintf(pathbuffer, PATH_MAX - 1, "%s:pfs:/%s", argv[0], path);
-  argv[0] = pathbuffer;
+  snprintf(elfPath, PATH_MAX - 1, "%s:pfs:/%s", argv[0], path);
+  argv[0] = elfPath;
 
   return LoadELFFromFile(argc, argv);
 }
