@@ -6,7 +6,7 @@ Free McBoot 1.8 OSDSYS patches ported to modern PS2SDK with some useful addition
 
 1. Copy `patcher.elf` and `launcher.elf` to `mc?:/BOOT/`  
    Copy DKWDRV to `mc?:/BOOT/DKWDRV.ELF` _(optional)_ 
-2. Edit `mc?:/SYS-CONF/OSDMENU.CNF` [as you see fit](#fmcb-handler)
+2. Edit `mc?:/SYS-CONF/OSDMENU.CNF` [as you see fit](#osdmenucnf)
 3. Configure PS2BBL to launch `mc?:/BOOT/patcher.elf` or launch it manually from LaunchELF
 
 ## Key differences from FMCB 1.8:
@@ -38,15 +38,25 @@ It reads settings from `mc?:/SYS-CONF/OSDMENU.CNF` and patches the `rom0:OSDSYS`
 - Override PS1 and PS2 disc launch functions with custom code that starts the launcher
 - Additional system information in version submenu (Video mode, ROM version, EE, GS and MechaCon revision)
 - Launch SAS-compatible applications from the memory card browser if `title.cfg` exists in the directory (see [config handler](#config-handler))  
-  This patch swaps around the "Enter" and "Options" menus and substitutes file properties submenu with the launcher.
+  This patch swaps around the "Enter" and "Options" menus and substitutes file properties submenu with the launcher.  
+  To launch an app, just press "Enter" after selecting the app icon.  
+  To copy or delete the save file, just use the triangle button.
 
 Patches not supported/limited on protokernel systems:
 - Automatic disc launch bypass
-- Custom button prompts
+- Button prompt customization
 - PAL video mode
-- Memory card browser patch might not work reliably on ROMs 1.00 and 1.01, the console might hang when trying to "Enter" an entry with no `title.cfg`.
 
-See the list for supported `OSDMENU.CNF` options [here](#freemcbcnf).  
+### Known issues as of the latest nightly build
+1. Currently, the memory card browser launch patch might cause issues when switching between the save files too quickly after the save file properties screen is opened. Known symptoms are:
+   - Incorrect save file sizes
+   - Browser getting stuck at grey screen when going back to the menu
+
+   The workaround is to wait until the browser calculates the save file size.
+
+### Configuration
+
+See the list for supported `OSDMENU.CNF` options [here](#osdmenucnf).  
 For every menu item and disc launch, it starts the launcher from `mc?:/BOOT/launcher.elf` and passes the menu index to it.
 
 ## Launcher
@@ -92,7 +102,7 @@ Respects `cdrom_skip_ps2logo`, `cdrom_disable_gameid` and `cdrom_use_dkwdrv` for
 
 ### Config handler
 When the launcher receives a path that ends with `.CNF`, `.cnf`, `.CFG` or `.cfg`,
-it will run the quickboot handler using this file.
+it will run the [quickboot handler](#quickboot-handler) using this file.
 
 Config file can be located at any device as long as the device mountpoint is one of the listed above.
 
