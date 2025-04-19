@@ -374,7 +374,7 @@ void restoreGSVideoMode() {
 //
 // Browser application launch patch
 // Swaps file properties and Copy/Delete menus around and launches an app when pressing Enter
-// if a title.cfg file is present in the icon directory
+// if a title.cfg file is present in the save file directory
 //
 
 static void (*browserDirSubmenuInitView)(uint32_t *iconProperties, uint8_t fileSubmenuType) = NULL;
@@ -382,10 +382,18 @@ static void (*browserDirSubmenuInitView)(uint32_t *iconProperties, uint8_t fileS
 // Using SCE functions here is important.
 static int (*sceOpen)(const char *path, int flags) = NULL;
 static int (*sceClose)(int fd) = NULL;
-
 int16_t selectedMCOffset = 0; // selected MC index offset from $gp, signed
 
 void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubmenuType) {
+  // Not suspending/resuming threads before executing sceOpen
+  // worsens instability issues when using SIF RPCs due to another thread
+  // accessing the memory card in the background (likely to calculate the save file size when this menu is triggered)
+  // The sooner threads are suspended — the less likely race condition is to occur
+  uint32_t tID = GetThreadId();
+  for (int i = 0; i < 0x20; i++)
+    if (i != tID)
+      SuspendThread(i);
+
   // Get memory card number by reading address relative to $gp
   int mcNumber;
   asm volatile("addu $t0, $gp, %1\n\t" // Add the offset to the gp register
@@ -395,6 +403,11 @@ void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubme
                : "$t0");
 
   if (fileSubmenuType == 1) { // Swap functions around so "Option" button triggers the Copy/Delete menu
+    // Resume threads
+    for (int i = 0; i < 0x20; i++)
+      if (i != tID)
+        ResumeThread(i);
+    // Open Copy/Delete menu
     browserDirSubmenuInitView(iconProperties, 0);
     return;
   }
@@ -417,7 +430,7 @@ void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubme
     char buf[100];
     buf[0] = '\0';
     strcat(buf, "mc?:");
-    strcat(buf, (char *)((uint32_t)stroffset));
+    strcat(buf, stroffset);
     strcat(buf, "/title.cfg");
     buf[2] = mcNumber + '0';
 
@@ -430,7 +443,11 @@ void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubme
     }
   }
 
-  // Otherwise, just show file properties
+  // Resume threads
+  for (int i = 0; i < 0x20; i++)
+    if (i != tID)
+      ResumeThread(i);
+  // Show file properties
   browserDirSubmenuInitView(iconProperties, 1);
 }
 
