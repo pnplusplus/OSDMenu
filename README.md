@@ -47,13 +47,6 @@ Patches not supported/limited on protokernel systems:
 - Button prompt customization
 - PAL video mode
 
-### Known issues as of the latest nightly build
-1. Currently, the memory card browser launch patch might cause issues when switching between the save files too quickly after the save file properties screen is opened. Known symptoms are:
-   - Incorrect save file sizes
-   - Browser getting stuck at grey screen when going back to the menu
-
-   The workaround is to wait until the browser calculates the save file size.
-
 ### Configuration
 
 See the list for supported `OSDMENU.CNF` options [here](#osdmenucnf).  
