@@ -54,7 +54,7 @@ jobs:
     - name: Prepare release archive
       run: |
         cd artifacts
-        zip -r ../osdmenu-launcher-${{ env.GIT_VERSION }}.zip ./*
+        zip -r ../osdmenu-${{ env.GIT_VERSION }}.zip ./*
 
     - uses: "marvinpinto/action-automatic-releases@latest"
       if: github.ref == 'refs/heads/main'
@@ -64,7 +64,7 @@ jobs:
         prerelease: true
         title: "Nightly build"
         files: |
-          osdmenu-launcher-${{ env.GIT_VERSION }}.zip
+          osdmenu-${{ env.GIT_VERSION }}.zip
 
     - uses: "marvinpinto/action-automatic-releases@latest"
       if: startsWith(github.ref, 'refs/tags/v')
@@ -72,4 +72,4 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         draft: true
         files: |
-          osdmenu-launcher-${{ env.GIT_VERSION }}.zip
+          osdmenu-${{ env.GIT_VERSION }}.zip
