@@ -83,33 +83,25 @@ static uint32_t patternBrowserFileMenuInit_mask[] = {0xffffffff, 0xffffffff};
 // Pattern for getting the address of the currently selected memory card
 // Located in browserDirSubmenuInitView function
 static uint32_t patternBrowserSelectedMC[] = {
-  0x8f820000, // lw v0,0x0000,gp <-- address relative to $gp
-  0x2442fffe, // addiu v0,v0,-0x2
-  0x2c420000, // sltiu v0,v0,0x?
+    0x8f820000, // lw v0,0x0000,gp <-- address relative to $gp
+    0x2442fffe, // addiu v0,v0,-0x2
+    0x2c420000, // sltiu v0,v0,0x?
 };
-static uint32_t patternBrowserSelectedMC_mask[] = {0xffff0000,0xffffffff, 0xfffffff0};
+static uint32_t patternBrowserSelectedMC_mask[] = {0xffff0000, 0xffffffff, 0xfffffff0};
 
-// Pattern for getting the address of the sceOpen function
-// Seems to be consistent across all ROM versions, including protokernels
-static uint32_t patternSCEopen[] = {
-    // 0x27bd???? // addiu sp,sp,0x???? --> function start
-    // 0x3c02???? // lui v0,0x????
-    // 0x3c03???? // lui v1,0x????
-    0xffb40050, // sd s4,0x0050,sp
-    0xffb30040, // sd s3,0x0040,sp
-    0x0060a02d, // daddu s4,v1,zero
+// Pattern for getting the address of the function that
+// triggers sceMcGetDir call and returns the directory size or -8 if result
+// is yet to be retrieved.
+// When this function returns -8, browserDirSubmenuInitView gets called repeatedly
+// until browserGetMcDirSize returns valid directory size
+static uint32_t patternBrowserGetMcDirSize[] = {
+    0x0c000000, // jal browserGetMcDirSize <-- target function
+    0x00000000, // nop
+    0x0040802d, // daddu s0,v0,zero
+    0x2402fff8, // addiu v0,zero,0x8
+    0x12020030, // beq   s0,v0,0x003?
 };
-static uint32_t patternSCEopen_mask[] = {0xffffffff, 0xffffffff, 0xffffffff};
-
-// Pattern for getting the address of the sceClose function
-// Seems to be consistent across all ROM versions, including protokernels
-static uint32_t patternSCEclose[] = {
-    0x27bdffa0, // addiu sp,sp,-0x70
-    0xffb30040, // sd    s3,0x0040,sp
-    0xffb10020, // sd    s1,0x0020,sp
-    0xffb00010, // sd    s0,0x0010,sp
-};
-static uint32_t patternSCEclose_mask[] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+static uint32_t patternBrowserGetMcDirSize_mask[] = {0xfc000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xfffffff0};
 
 //
 // Protokernel patterns

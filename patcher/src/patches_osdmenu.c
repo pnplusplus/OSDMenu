@@ -377,22 +377,33 @@ void restoreGSVideoMode() {
 // if a title.cfg file is present in the save file directory
 //
 
-static void (*browserDirSubmenuInitView)(uint32_t *iconProperties, uint8_t fileSubmenuType) = NULL;
+// Initializes submenu data
+// entryProps — a pointer to save file properties. Contains icon properties, save date, file size and path relative to mc0/mc1
+// fileSubmenuType — indicates submenu type, where 0 is the Copy/Delete menu and 1 is save file properties­
+static void (*browserDirSubmenuInitView)(uint8_t *entryProps, uint8_t fileSubmenuType) = NULL;
+// Returns directory size. Called only after submenu is entered and only once: the result is cached in entry properties and the buffer
+// is reused for subsequent sceMcGetDir calls. To persist the app indicator, browserGetMcDirSizeCustom stores 0xAA at *(entryProps - 0x2)
+static int (*browserGetMcDirSize)(void) = NULL;
+// The address of sceMcGetDir result buffer
+static uint32_t sceMcGetDirResultAddr = 0x0;
 
-// Using SCE functions here is important.
-static int (*sceOpen)(const char *path, int flags) = NULL;
-static int (*sceClose)(int fd) = NULL;
-int16_t selectedMCOffset = 0; // selected MC index offset from $gp, signed
+// Selected MC index offset from $gp, signed
+int16_t selectedMCOffset = 0;
+// Entry properties address for the currently selected entry
+// The most significant bit is used to signal the browserGetMcDirSizeCustom function that it needs to launch the app immediately
+uint32_t entryPropsAddr = 0;
+// Path buffer
+char pathBuf[100];
 
-void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubmenuType) {
-  // Not suspending/resuming threads before executing sceOpen
-  // worsens instability issues when using SIF RPCs due to another thread
-  // accessing the memory card in the background (likely to calculate the save file size when this menu is triggered)
-  // The sooner threads are suspended — the less likely race condition is to occur
-  uint32_t tID = GetThreadId();
-  for (int i = 0; i < 0x20; i++)
-    if (i != tID)
-      SuspendThread(i);
+// This function is always executed first and called every time a submenu is opened
+void browserDirSubmenuInitViewCustom(uint8_t *entryProps, uint8_t fileSubmenuType) {
+  // Store the address for browserGetMcDirSizeCustom
+  entryPropsAddr = (uint32_t)entryProps;
+
+  if (fileSubmenuType == 1) { // Swap functions around so "Option" button triggers the Copy/Delete menu
+    browserDirSubmenuInitView(entryProps, 0);
+    return;
+  }
 
   // Get memory card number by reading address relative to $gp
   int mcNumber;
@@ -401,16 +412,6 @@ void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubme
                : "=r"(mcNumber)
                : "r"((int32_t)selectedMCOffset) // Cast the type to avoid GCC using lhu instead of lh
                : "$t0");
-
-  if (fileSubmenuType == 1) { // Swap functions around so "Option" button triggers the Copy/Delete menu
-    // Resume threads
-    for (int i = 0; i < 0x20; i++)
-      if (i != tID)
-        ResumeThread(i);
-    // Open Copy/Delete menu
-    browserDirSubmenuInitView(iconProperties, 0);
-    return;
-  }
 
   // Translate the memory card number
   // The memory card number OSDSYS uses equals 2 for mc0 and 6 for mc1 (3 for mc1 on protokernels).
@@ -421,34 +422,57 @@ void browserDirSubmenuInitViewCustom(uint32_t *iconProperties, uint8_t fileSubme
   case 2: // mc0
     mcNumber = mcNumber - 2;
 
+    // Set the most significant bit to indicate that immediate launch is needed
+    entryPropsAddr |= (1 << 31);
+
     // Find the path in icon properties starting from offset 0x160
-    char *stroffset = (char *)iconProperties + 0x160;
+    char *stroffset = (char *)entryProps + 0x160;
     while (*stroffset != '/')
       stroffset++;
 
     // Assemble the path
-    char buf[100];
-    buf[0] = '\0';
-    strcat(buf, "mc?:");
-    strcat(buf, stroffset);
-    strcat(buf, "/title.cfg");
-    buf[2] = mcNumber + '0';
+    pathBuf[0] = '\0';
+    strcat(pathBuf, "mc?:");
+    strcat(pathBuf, stroffset);
+    strcat(pathBuf, "/title.cfg");
+    pathBuf[2] = mcNumber + '0';
 
-    // Check if title.cfg exists in the icon directory
-    int fd = sceOpen(buf, 0x1);
-    if (fd >= 0) {
-      sceClose(fd);
-      launchItem(buf);
-      __builtin_trap();
-    }
+    if (*(entryProps - 0x2) == 0xAA)
+      // Launch if icon is an app, launch the app
+      launchItem(pathBuf);
+    // Else, the app will be launched by the browserGetMcDirSizeCustom function
   }
 
-  // Resume threads
-  for (int i = 0; i < 0x20; i++)
-    if (i != tID)
-      ResumeThread(i);
-  // Show file properties
-  browserDirSubmenuInitView(iconProperties, 1);
+  browserDirSubmenuInitView(entryProps, 1);
+}
+
+// This function is always executed after browserDirSubmenuInitViewCustom and never called again
+// once it returns the directory size until the user goes back to the memory card select screen.
+// If immediate launch is requested, launches the app if it has title.cfg entry in sceMcGetDir result
+// Otherwise, puts 0xAA at (entryProps - 0x2) for browserDirSubmenuInitViewCustom
+int browserGetMcDirSizeCustom() {
+  int res = browserGetMcDirSize();
+  // This function returns -8 until sceMcSync returns the result
+  if ((res != -8)) {
+    // Each entry occupies 0x40 bytes, with entry name starting at offset 0x20
+    char *off = (char *)(sceMcGetDirResultAddr + 0x20);
+    while (off[0] != '\0') {
+      if (!strcmp("title.cfg", off)) {
+        // If immediate launch is requested, launch the app
+        if (entryPropsAddr & (1 << 31))
+          launchItem(pathBuf);
+
+        // Else, put app marker (0xAA) to *(entryProps - 0x2)
+        *(((uint8_t *)((entryPropsAddr) & 0x7FFFFFFF)) - 0x2) = 0xAA;
+        off += 0x40;
+        break;
+      }
+      off += 0x40;
+    }
+    // Zero-out the result buffer to avoid false positives since we don't know the number of entries
+    memset((void *)sceMcGetDirResultAddr, 0, ((uint32_t)off - sceMcGetDirResultAddr));
+  }
+  return res;
 }
 
 // Browser application launch patch
@@ -456,46 +480,72 @@ void patchBrowserApplicationLaunch(uint8_t *osd, int isProtokernel) {
   // Protokernel browser code starts at ~0x700000
   uint32_t osdOffset = (isProtokernel) ? (PROTOKERNEL_MENU_OFFSET + 0x100000) : 0;
 
-  // Get SCE function pointers
-  uint8_t *ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternSCEopen, (uint8_t *)patternSCEopen_mask, sizeof(patternSCEopen));
-  if (!ptr || ((_lw((uint32_t)ptr - 3 * 4) & 0xffff0000) != 0x27bd0000))
-    return;
-
-  sceOpen = (void *)((uint32_t)ptr - 3 * 4);
-
-  ptr = findPatternWithMask(osd, 0x100000, (uint8_t *)patternSCEclose, (uint8_t *)patternSCEclose_mask, sizeof(patternSCEclose));
-  if (!ptr)
-    return;
-
-  sceClose = (void *)ptr;
-
   // Find the target function
-  ptr = findPatternWithMask(osd + osdOffset, 0x100000, (uint8_t *)patternBrowserFileMenuInit, (uint8_t *)patternBrowserFileMenuInit_mask,
-                            sizeof(patternBrowserFileMenuInit));
+  uint8_t *ptr = findPatternWithMask(osd + osdOffset, 0x100000, (uint8_t *)patternBrowserFileMenuInit, (uint8_t *)patternBrowserFileMenuInit_mask,
+                                     sizeof(patternBrowserFileMenuInit));
 
   if (!ptr || ((_lw((uint32_t)ptr + 4 * 4) & 0xfc000000) != 0x0c000000))
     return;
-
   ptr += 4 * 4;
 
   // Get the original function call and save the address
-  uint32_t tmp = _lw((uint32_t)ptr);
-  tmp &= 0x03ffffff;
-  tmp <<= 2;
-  browserDirSubmenuInitView = (void *)tmp;
+  browserDirSubmenuInitView = (void *)((_lw((uint32_t)ptr) & 0x03ffffff) << 2);
 
   // Find the selected memory card offset
-  uint8_t *offset = findPatternWithMask((uint8_t *)browserDirSubmenuInitView, 0x500, (uint8_t *)patternBrowserSelectedMC,
-                                        (uint8_t *)patternBrowserSelectedMC_mask, sizeof(patternBrowserSelectedMC));
-  if (!offset)
+  uint8_t *ptr2 = findPatternWithMask((uint8_t *)browserDirSubmenuInitView, 0x500, (uint8_t *)patternBrowserSelectedMC,
+                                      (uint8_t *)patternBrowserSelectedMC_mask, sizeof(patternBrowserSelectedMC));
+  if (!ptr2)
     return;
+  // Store memory card offset
+  selectedMCOffset = _lw((uint32_t)ptr2) & 0xffff;
 
-  selectedMCOffset = _lw((uint32_t)offset) & 0xffff;
+  // Find the target function
+  ptr2 = findPatternWithMask(osd + osdOffset, 0x100000, (uint8_t *)patternBrowserGetMcDirSize, (uint8_t *)patternBrowserGetMcDirSize_mask,
+                             sizeof(patternBrowserGetMcDirSize));
+  if (!ptr2)
+    return;
+  // Get the original function call and save the address
+  browserGetMcDirSize = (void *)((_lw((uint32_t)ptr2) & 0x03ffffff) << 2);
 
-  // Replace the original init function
-  tmp = 0x0c000000;
-  tmp |= ((uint32_t)browserDirSubmenuInitViewCustom >> 2);
-  _sw(tmp, (uint32_t)ptr); // jal browserDirSubmenuInitViewCustom
+  if (isProtokernel)
+    // Use fixed address for protokernels. The call tree is way more complicated on these,
+    // so it's not worth the trouble since the address is identical for both 1.00 and 1.01
+    sceMcGetDirResultAddr = 0x008f66d0;
+  else {
+    // Trace the sceMcGetDir result buffer address
+    // From the browserGetMcDirSize function, get the address of the next function call
+    //  that retrieves directory size for mc0/mc1. This function sends sceMcGetDir request
+    //  to the libmc worker thread. The buffer address is stored in $t0.
+    // This function loads the upper part of the address to $v0
+    // adds the base offset to $s1, adds constant offset and puts the result into $t0.
+    // So, to get the address:
+    // 1. Find the first load into $v0 (lui   v0,????)
+    // 2. Find the first add into $s1  (addiu s1,v0,????)
+    // 3. Add the constant offset 0xc38 (same for all ROM versions >=1.10)
+    uint32_t offset = (uint32_t)browserGetMcDirSize;
+
+    // Find the first function call in browserGetMcDirSize and get the function address
+    while ((_lw(offset) & 0xfc000000) != 0x0c000000)
+      offset += 4;
+    offset = (_lw((uint32_t)offset) & 0x03ffffff) << 2;
+
+    // Initialize with fixed offset
+    sceMcGetDirResultAddr = 0xc38;
+
+    // Search for lui v0,???? instruction to get the upper part
+    while ((_lw(offset) & 0x3c020000) != 0x3c020000)
+      offset += 4;
+    sceMcGetDirResultAddr |= (_lw(offset) & 0xffff) << 16;
+
+    // Search for addiu s1,v0,???? to get the lower part (might be negative)
+    while ((_lw(offset) & 0x24510000) != 0x24510000)
+      offset += 4;
+    sceMcGetDirResultAddr += (int32_t)((int16_t)(_lw(offset) & 0xffff));
+  }
+
+  // Replace original functions
+  _sw((0x0c000000 | ((uint32_t)browserDirSubmenuInitViewCustom >> 2)), (uint32_t)ptr); // jal browserDirSubmenuInitViewCustom
+  _sw((0x0c000000 | ((uint32_t)browserGetMcDirSizeCustom >> 2)), (uint32_t)ptr2);      // jal browserGetMcDirSizeCustom
 }
 
 //
