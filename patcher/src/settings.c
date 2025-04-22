@@ -177,6 +177,10 @@ int loadConfig(void) {
       continue;
     }
     if (!strncmp(name, "name_OSDSYS_ITEM_", 17) && (strlen(value) > 0)) {
+      // Ignore all subsequent entries if the number of items has been maxed out
+      if (settings.menuItemCount == CUSTOM_ITEMS)
+        continue;
+
       // Process only non-empty values
       j = atoi(&name[17]);
       strncpy(settings.menuItemName[settings.menuItemCount], value, NAME_LEN - 1);

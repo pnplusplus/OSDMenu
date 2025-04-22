@@ -438,7 +438,7 @@ void browserDirSubmenuInitViewCustom(uint8_t *entryProps, uint8_t fileSubmenuTyp
     pathBuf[2] = mcNumber + '0';
 
     if (*(entryProps - 0x2) == 0xAA)
-      // Launch if icon is an app, launch the app
+      // If icon is an app, launch the app
       launchItem(pathBuf);
     // Else, the app will be launched by the browserGetMcDirSizeCustom function
   }
