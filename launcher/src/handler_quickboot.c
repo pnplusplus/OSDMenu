@@ -77,7 +77,6 @@ int handleQuickboot(char *cnfPath) {
     if (!strncmp(lineBuffer, "path", 4)) {
       if ((strlen(valuePtr) > 0))
         targetPaths = addStr(targetPaths, valuePtr);
-
       continue;
     }
     if (!strncmp(lineBuffer, "arg", 3)) {
@@ -88,6 +87,7 @@ int handleQuickboot(char *cnfPath) {
       continue;
     }
   }
+  fclose(file);
 
   // Build argv, freeing targetArgs
   char **targetArgv = malloc(targetArgc * sizeof(char *));
