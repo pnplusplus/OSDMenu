@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static uint32_t osdMenu[4 + CUSTOM_ITEMS * 3];
+static uint32_t osdMenu[4 + CUSTOM_ITEMS * 2];
 
 struct OSDMenuInfo {
   uint32_t unknown1;
@@ -622,18 +622,15 @@ void patchMenuProtokernel(uint8_t *osd) {
   // Build the OSD menu
   osdMenu[0] = _lw(menuAddr - 4 * 7); // "Browser"
   osdMenu[1] = _lw(menuAddr - 4 * 6);
-  osdMenu[2] = _lw(menuAddr - 4 * 5);
-  osdMenu[3] = _lw(menuAddr - 4 * 4); // "System Configuration"
-  osdMenu[4] = _lw(menuAddr - 4 * 3);
-  osdMenu[5] = _lw(menuAddr - 4 * 2);
+  osdMenu[2] = _lw(menuAddr - 4 * 4); // "System Configuration"
+  osdMenu[3] = _lw(menuAddr - 4 * 3);
 
   for (i = 0; i < settings.menuItemCount; i++) {
     if (settings.menuItemName[i][0] == '\0')
       continue;
 
-    osdMenu[6 + i * 3] = (uint32_t)settings.menuItemName[i];
-    osdMenu[7 + i * 3] = (uint32_t)settings.menuItemName[i];
-    osdMenu[8 + i * 3] = 0;
+    osdMenu[4 + i * 2] = (uint32_t)settings.menuItemName[i];
+    osdMenu[5 + i * 2] = (uint32_t)settings.menuItemName[i];
   }
 
   menuInfo->menuPtr = osdMenu;                       // store menu pointer
@@ -641,13 +638,18 @@ void patchMenuProtokernel(uint8_t *osd) {
 }
 
 // Protokernel drawing functions don't pass anything indicating the entry index.
-// Y coordinate is calculated using (0x62 + <entry index> * 0x10) and can be used to emulate this value.
-// drawMenuItemSelected/drawMenuItemUnelected expect num to be equal (<entry index> * 0x8)
+// However, s0 register contains menu index
 void drawMenuItemSelectedProtokernel(int X, int Y, uint32_t *color, int alpha, const char *string) {
-  drawMenuItemSelected(X, Y, color, alpha, string, ((Y - 0x62) / 0x10) * 0x8);
+  int num = 0;
+  asm volatile("move %0, $s0" : "=r"(num)::); // Get menu index from s0 register
+  num *= 8;                                   // Multiply by 8 to align with later OSDSYS behavior
+  drawMenuItemSelected(X, Y, color, alpha, string, num);
 }
 void drawMenuItemUnselectedProtokernel(int X, int Y, uint32_t *color, int alpha, const char *string) {
-  drawMenuItemUnselected(X, Y, color, alpha, string, ((Y - 0x62) / 0x10) * 0x8);
+  int num = 0;
+  asm volatile("move %0, $s0" : "=r"(num)::); // Get menu index from s0 register
+  num *= 8;                                   // Multiply by 8 to align with later OSDSYS behavior
+  drawMenuItemUnselected(X, Y, color, alpha, string, num);
 }
 
 // Protokernel DrawMenuItem expects a pointer to string address, not the string address
@@ -704,6 +706,13 @@ void patchMenuDrawProtokernel(uint8_t *osd) {
   tmp = 0x0c000000;
   tmp |= ((uint32_t)drawMenuItemUnselectedProtokernel >> 2);
   _sw(tmp, pUnselItem + 0x10); // overwrite the function call for unselected item
+
+  // Protokernels use three values per menu entry
+  // Adjust this behavior to match later OSDSYS (two values per entry)
+  // by changing the instruction that increments the string index.
+  tmp = _lw(pUnselItem + 32); // Must be addiu ??,??,0xc
+  if ((tmp & 0xff0000ff) == 0x2600000c)
+    _sw((tmp & 0xffffff00) | 0x08, pUnselItem + 32); // Modify to addiu ??,??,0x08
 }
 
 // An array that stores what function to call for each disc type.
